@@ -1,5 +1,9 @@
 # speckit-okf — OKF Knowledge Bundle Generator for Spec Kit
 
+[![CodeQL](https://github.com/alexcpn/speckit_ofk/actions/workflows/codeql.yml/badge.svg)](https://github.com/alexcpn/speckit_ofk/actions/workflows/codeql.yml)
+[![ShellCheck](https://github.com/alexcpn/speckit_ofk/actions/workflows/shellcheck.yml/badge.svg)](https://github.com/alexcpn/speckit_ofk/actions/workflows/shellcheck.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 A [Spec Kit](https://github.com/github/spec-kit) extension that turns your AI coding agent into an **OKF enrichment agent**: it analyzes a source-code repository and generates a conformant [Open Knowledge Format (OKF v0.1)](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md) knowledge bundle — a directory of cross-linked markdown concepts with YAML frontmatter describing your services, modules, APIs, data models, and operations.
 
 Because OKF bundles are plain markdown in git, the generated bundle is readable by humans, diffable in PRs, and consumable by other agents without any bespoke tooling.
@@ -74,6 +78,7 @@ knowledge/
 - The updater never deletes concepts or human-written prose; removed code yields `status: deprecated`, not deletion.
 - Secrets found in configs are described by shape, never by value; the validator flags anything that slips through.
 - OKF's permissive consumption model (unknown types OK, broken links OK) is relied on deliberately — generation is safe to run early and often.
+- Both scripts are checked on every push via CodeQL and ShellCheck; see [SECURITY.md](SECURITY.md) to report a vulnerability.
 
 ## License
 
