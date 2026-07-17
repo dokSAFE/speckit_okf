@@ -16,7 +16,7 @@ Because OKF bundles are plain markdown in git, the generated bundle is readable 
 
 ```bash
 # Option 1: install from a released archive (no catalog needed)
-specify extension add okf --from https://github.com/alexcpn/speckit_ofk/archive/refs/tags/v0.1.0.zip
+specify extension add okf --from https://github.com/alexcpn/speckit_ofk/archive/refs/tags/v0.2.0.zip
 
 # Option 2: install from a local clone (dev mode)
 git clone https://github.com/alexcpn/speckit_ofk.git
