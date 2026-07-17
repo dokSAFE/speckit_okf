@@ -15,13 +15,33 @@ Because OKF bundles are plain markdown in git, the generated bundle is readable 
 ## Install
 
 ```bash
-# From a spec-kit project (after `specify init`):
-specify extension add --dev /path/to/speckit-okf
-# or, once published to a catalog:
+# Option 1: install from a released archive (no catalog needed)
+specify extension add okf --from https://github.com/alexcpn/speckit_ofk/archive/refs/tags/v0.1.0.zip
+
+# Option 2: install from a local clone (dev mode)
+git clone https://github.com/alexcpn/speckit_ofk.git
+specify extension add --dev speckit_ofk/
+
+# Option 3: once listed in the community catalog
 specify extension add okf
 ```
 
-Then launch your coding agent (Claude Code, Copilot, etc.) in the project and run `/speckit.okf.generate`.
+## Usage
+
+From your coding agent (Claude Code, Copilot, etc.) in the project:
+
+```bash
+# 1. Generate the initial knowledge bundle
+/speckit.okf.generate
+
+# 2. After making code changes, refresh incrementally
+/speckit.okf.update
+
+# 3. Validate conformance before committing
+/speckit.okf.validate
+```
+
+Output lands in `knowledge/` (configurable) as a set of cross-linked markdown concept files ready to commit alongside your code.
 
 ## Configuration
 
