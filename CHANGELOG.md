@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0 — 2026-07-17
+## [0.2.0](https://github.com/alexcpn/speckit_ofk/releases/tag/v0.2.0) — 2026-07-17
 * `okf-config.yml`'s `exclude` list is now actually honored by both
   `okf-inventory.sh` and `validate_okf.py` (via `--config`/`--exclude`),
   not just interpreted as prompt guidance. Fallback exclude defaults in
@@ -37,6 +37,6 @@
   concrete algorithm (compare `timestamp` against each `source_files`
   entry's last commit time).
 
-## 0.1.0 — 2026-07-17
+## [0.1.0](https://github.com/alexcpn/speckit_ofk/releases/tag/v0.1.0) — 2026-07-17
 * Initial release: `/speckit.okf.generate`, `/speckit.okf.update`, `/speckit.okf.validate`.
 * Deterministic inventory script and OKF v0.1 conformance validator.
