@@ -5,7 +5,7 @@ schema_version: "1.0"
 extension:
   id: "okf"
   name: "OKF Knowledge Bundle Generator"
-  version: "0.1.0"
+  version: "0.2.0"
   description: >
     Generates and maintains an Open Knowledge Format (OKF v0.1) knowledge
     bundle from a source-code repository. Adds commands to bootstrap a
@@ -23,6 +23,11 @@ extension:
 requires:
   speckit_version: ">=0.12.0"
 
+# scripts/bash/ and scripts/python/ are plain supporting files, not
+# manifest-declared assets — the extension installer copies this whole
+# directory tree to .specify/extensions/okf/, and the three command files
+# below reference the scripts by that hardcoded path. If you move or
+# rename the scripts directory, update all three command files to match.
 provides:
   commands:
     - name: "speckit.okf.generate"

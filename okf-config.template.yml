@@ -13,7 +13,9 @@ okf:
   # Leave empty to auto-detect from `git remote get-url origin`.
   resource_base: ""   # e.g. "https://github.com/acme/shop/blob/main/{path}"
 
-  # Paths (glob) to exclude from the inventory scan.
+  # Paths (glob) to exclude from the inventory scan and bundle validation.
+  # Honored directly by okf-inventory.sh and validate_okf.py (pass
+  # --config <this file> to either script) — not just prompt guidance.
   exclude:
     - "node_modules/**"
     - ".git/**"

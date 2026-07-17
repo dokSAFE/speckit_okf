@@ -20,23 +20,33 @@ $ARGUMENTS
 1. Load configuration from `.specify/extensions/okf/okf-config.yml` if it
    exists; otherwise use the defaults in `okf-config.template.yml`
    (bundle_dir=`knowledge/`, granularity=`medium`).
-2. Run the inventory script and read its output:
+2. Run the inventory script, passing the config path if it exists, and
+   read the path it prints (do not assume a fixed location — the script
+   picks a per-run temp file to avoid collisions with concurrent runs):
 
    ```bash
-   .specify/extensions/okf/scripts/bash/okf-inventory.sh
+   .specify/extensions/okf/scripts/bash/okf-inventory.sh --config .specify/extensions/okf/okf-config.yml
    ```
 
-   This produces `/tmp/okf-inventory.json` with the file tree, languages,
-   entry points, dependency manifests, schema/migration files, API
-   definition files, CI/CD configs, and existing docs.
+   The script prints `Inventory written to <path>` — read the JSON from
+   that path. It contains the file tree, languages, entry points,
+   dependency manifests, schema/migration files, API definition files,
+   CI/CD configs, and existing docs, honoring the config's `exclude` list.
+   Each category also carries a `truncated` flag (see the top-level
+   `truncated` object) — if a category you need was truncated, either
+   widen `--exclude` in config or ask the user before concluding you've
+   seen the full picture for that category.
 3. Determine `resource_base`: from config, else from
    `git remote get-url origin` + default branch (convert SSH form to an
    `https://.../blob/<branch>/{path}` form). If the repo has no remote,
    omit `resource:` fields entirely rather than inventing URIs.
-4. If a bundle already exists at `bundle_dir` with a `log.md`, STOP and
-   tell the user to run `/speckit.okf.update` instead (regenerating from
-   scratch would destroy curation). Only proceed if the user explicitly
-   asked for a full rebuild in $ARGUMENTS.
+4. If `bundle_dir` already exists and contains one or more `.md` files
+   (whether or not `log.md` is present — a hand-seeded or partial bundle
+   is still real curation), STOP and tell the user to run
+   `/speckit.okf.update` instead (regenerating from scratch would destroy
+   curation). Only proceed if the user explicitly asked for a full
+   rebuild in $ARGUMENTS. If `bundle_dir` doesn't exist or is empty,
+   proceed.
 
 ## Phase 1 — Concept planning (do this BEFORE writing files)
 
@@ -91,7 +101,7 @@ source_files:                     # extension field: repo-relative paths this co
 
 `source_files` is a producer extension field (permitted by OKF §4.1) — it
 is what makes incremental updates possible. Always include it, and also
-include `generated_by: speckit-okf/0.1.0`.
+include `generated_by: speckit-okf/0.2.0`.
 
 ### Body conventions
 
@@ -148,17 +158,21 @@ Create `log.md` at the bundle root:
 # Knowledge Bundle Update Log
 
 ## <YYYY-MM-DD>
+Commit: `<short-sha>`
 * **Initialization**: Generated bundle from commit `<short-sha>` with speckit-okf. <N> concepts across <dirs>.
 ```
 
-Record the source commit SHA — `/speckit.okf.update` diffs from it.
+The `Commit:` line is REQUIRED and machine-checked (validator rule E4) —
+it is what `/speckit.okf.update` reads to resume incrementally. Always
+write it as the first line under the date heading, exactly in that
+backtick-quoted form.
 
 ## Phase 3 — Validate and report
 
 1. Run the conformance checker:
 
    ```bash
-   python3 .specify/extensions/okf/scripts/python/validate_okf.py <bundle_dir>
+   python3 .specify/extensions/okf/scripts/python/validate_okf.py <bundle_dir> --config .specify/extensions/okf/okf-config.yml
    ```
 
 2. Fix any ERRORs (unparseable frontmatter, missing/empty `type`,
