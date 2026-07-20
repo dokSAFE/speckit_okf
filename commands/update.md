@@ -76,6 +76,18 @@ $ARGUMENTS
      dependency links). Preserve prose, tips, and any content not
      traceable to `source_files` — that is human curation. Update
      `timestamp` and `source_files` frontmatter.
+   - **Never overwrite clarified facts.** Any sentence/section preceded or
+     followed by a `<!-- clarified: ... -->` sentinel was confirmed by a
+     human via `/speckit.okf.clarify`. Leave it (and its sentinel) intact
+     unless the underlying code genuinely contradicts it — in which case
+     flag the conflict as a new `open_questions` entry rather than silently
+     rewriting it.
+   - Use `.specify/extensions/okf/scripts/bash/okf-history.sh <path>` on the
+     changed files to ground *why* they changed (revert/hotfix signals) so
+     refreshed sections keep the "why", not just the "what".
+   - If a change introduces behavior you can't explain from the code or its
+     history, add an `open_questions` entry to the concept rather than
+     guessing (it will be picked up by `/speckit.okf.clarify`).
    - For orphaned concepts: do not delete. Add `status: deprecated` to
      frontmatter, prepend a one-line deprecation note to the body, and
      keep inbound links working.
@@ -102,12 +114,18 @@ $ARGUMENTS
    python3 .specify/extensions/okf/scripts/python/validate_okf.py <bundle_dir> --config .specify/extensions/okf/okf-config.yml
    ```
 
-   fix ERRORs, then summarize: N updated, N created, N deprecated,
-   validation status.
+   fix ERRORs, then summarize: N updated, N created, N deprecated, N new
+   `open_questions` raised (W8), validation status. If any concept carries
+   open questions, suggest running `/speckit.okf.clarify`.
 
 ## Hard rules
 
-- Preserve unknown frontmatter keys on round-trip (OKF §4.1).
+- Preserve unknown frontmatter keys on round-trip (OKF §4.1) — including
+  `open_questions`, `generated_by`, and any `<!-- clarified: ... -->`
+  sentinels (human curation; never overwrite the facts they guard).
 - Never delete concept files or human-authored prose.
+- Never guess: when code/history don't settle a fact, add an
+  `open_questions` entry instead of inventing an answer.
 - Never modify source code; writes stay inside `bundle_dir`.
-- No secrets/credentials in any output.
+- No secrets/credentials in any output (including from `--patch`/blame
+  history — describe shape, never values).

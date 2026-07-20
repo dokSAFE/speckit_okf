@@ -27,6 +27,7 @@ WARNINGS (consumers must tolerate; reported for quality):
       reconciliation by /speckit.okf.update).
   W7  Possible duplicate concept: another file shares the same
       `type` + `title`.
+  W8  Concept has unresolved `open_questions` (run /speckit.okf.clarify).
 
 Usage: validate_okf.py <bundle_dir> [--config PATH] [--exclude GLOB]...
                         [--repo-root PATH] [--json]
@@ -135,6 +136,7 @@ def check_concept(path: str, rel: str, bundle: str, repo_root: str):
         warnings.append(f"W4 {rel}: concept body is empty")
     check_links(body, rel, os.path.dirname(path), bundle)
     check_source_files(data, rel, repo_root)
+    check_open_questions(data, rel)
     if isinstance(t, str) and t.strip() and data.get("title"):
         concept_meta.append((rel, t.strip(), str(data["title"]).strip()))
     for pattern in SECRET_PATTERNS:
@@ -153,6 +155,19 @@ def check_source_files(data: dict, rel: str, repo_root: str):
         candidate = os.path.join(repo_root, entry)
         if not os.path.exists(candidate):
             warnings.append(f"W6 {rel}: source_files entry '{entry}' does not exist")
+
+
+def check_open_questions(data: dict, rel: str):
+    oq = data.get("open_questions")
+    if not isinstance(oq, list):
+        return
+    pending = [q for q in oq if isinstance(q, str) and q.strip()]
+    if pending:
+        n = len(pending)
+        warnings.append(
+            f"W8 {rel}: {n} unresolved open question{'s' if n != 1 else ''} "
+            f"— run /speckit.okf.clarify"
+        )
 
 
 def check_links(body: str, rel: str, filedir: str, bundle: str):

@@ -5,12 +5,13 @@ schema_version: "1.0"
 extension:
   id: "okf"
   name: "OKF Knowledge Bundle Generator"
-  version: "0.2.0"
+  version: "0.3.0"
   description: >
     Generates and maintains an Open Knowledge Format (OKF v0.1) knowledge
     bundle from a source-code repository. Adds commands to bootstrap a
-    bundle, incrementally update it from git history, and validate
-    conformance against the OKF spec
+    bundle (mining git history for the "why"), incrementally update it,
+    clarify open questions with the user, and validate conformance against
+    the OKF spec
     (https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md).
   author: "Alex Punnen <alexcpn@gmail.com>"
   repository: "https://github.com/alexcpn/speckit_ofk.git"
@@ -25,15 +26,17 @@ requires:
 
 # scripts/bash/ and scripts/python/ are plain supporting files, not
 # manifest-declared assets — the extension installer copies this whole
-# directory tree to .specify/extensions/okf/, and the three command files
-# below reference the scripts by that hardcoded path. If you move or
-# rename the scripts directory, update all three command files to match.
+# directory tree to .specify/extensions/okf/, and the command files below
+# reference the scripts by that hardcoded path. If you move or rename the
+# scripts directory, update all command files to match.
 provides:
   commands:
     - name: "speckit.okf.generate"
       file: "commands/generate.md"
     - name: "speckit.okf.update"
       file: "commands/update.md"
+    - name: "speckit.okf.clarify"
+      file: "commands/clarify.md"
     - name: "speckit.okf.validate"
       file: "commands/validate.md"
   config:

@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.3.0](https://github.com/alexcpn/speckit_ofk/releases/tag/v0.3.0) — 2026-07-20
+* **Git history as a first-class signal.** `okf-inventory.sh` now emits a
+  `git.history` object: `churn` (per-file commit counts over the last
+  `OKF_HISTORY_COMMITS` non-merge commits, capped at `OKF_CHURN_TOP`) as a
+  significance signal, plus `recent_commits`. Added an `adr_docs` category
+  (ADR/RFC/decision files) for seeding Design Decision concepts. All scans
+  are bounded and skip cleanly on non-git repos.
+* **New `okf-history.sh` script** — bounded, per-path git history for the
+  agent to mine the "why" of a concept: creation commit, commit count,
+  recent subjects, and revert/hotfix/risk-flagged commits (deadlock, race,
+  regression, security). Diff-free by default (`--patch` opt-in) to avoid
+  leaking secrets from history; `--json` and `--limit` supported.
+* **New `/speckit.okf.clarify` command.** Generate/update now *park*
+  uncertainty in an `open_questions` frontmatter list instead of guessing;
+  clarify collects those, asks the user in prioritized batches (capped by
+  `clarify.max_questions`, default 20), and folds answers back into concept
+  bodies marked with `<!-- clarified: ... -->` sentinels. `/speckit.okf.update`
+  preserves those sentinels as human curation and never overwrites them.
+* `/speckit.okf.generate`: uses churn for Phase 1 significance, runs
+  `okf-history.sh` per concept for the "why", and emits `open_questions`
+  where code + history are inconclusive. `generated_by` bumped to
+  `speckit-okf/0.3.0`.
+* `validate_okf.py`: added **W8** (concept has unresolved `open_questions`).
+* `validate.md`/`README`/`extension.yml`/config template updated for the new
+  command, script, and config knob.
+
 ## [0.2.0](https://github.com/alexcpn/speckit_ofk/releases/tag/v0.2.0) — 2026-07-17
 * `okf-config.yml`'s `exclude` list is now actually honored by both
   `okf-inventory.sh` and `validate_okf.py` (via `--config`/`--exclude`),

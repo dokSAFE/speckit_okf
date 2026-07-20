@@ -59,3 +59,9 @@ okf:
   # "medium"  = coarse + significant submodules and configs (default)
   # "fine"    = medium + per-file concepts for complex files
   granularity: "medium"
+
+  # /speckit.okf.clarify behavior.
+  clarify:
+    # Max questions to ask the user in a single clarify run (the rest are
+    # deferred to a later run) — keeps clarification from spamming the user.
+    max_questions: 20

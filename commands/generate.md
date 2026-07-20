@@ -25,17 +25,32 @@ $ARGUMENTS
    picks a per-run temp file to avoid collisions with concurrent runs):
 
    ```bash
+   # if okf-config.yml exists, pass it so the exclude list is honored:
    .specify/extensions/okf/scripts/bash/okf-inventory.sh --config .specify/extensions/okf/okf-config.yml
+   # otherwise run without --config to use the script's built-in defaults:
+   .specify/extensions/okf/scripts/bash/okf-inventory.sh
    ```
 
    The script prints `Inventory written to <path>` — read the JSON from
    that path. It contains the file tree, languages, entry points,
    dependency manifests, schema/migration files, API definition files,
-   CI/CD configs, and existing docs, honoring the config's `exclude` list.
-   Each category also carries a `truncated` flag (see the top-level
-   `truncated` object) — if a category you need was truncated, either
-   widen `--exclude` in config or ask the user before concluding you've
-   seen the full picture for that category.
+   CI/CD configs, existing docs, and ADR/design-decision docs
+   (`adr_docs`), honoring the config's `exclude` list. Each category also
+   carries a `truncated` flag (see the top-level `truncated` object) — if
+   a category you need was truncated, either widen `--exclude` in config
+   or ask the user before concluding you've seen the full picture for
+   that category.
+5. Note the **git history signals** under `git.history` in the inventory:
+   - `churn` — files ranked by commit count (hottest first). Treat high
+     churn as a **significance** signal in Phase 1 (a file touched by 40
+     commits almost certainly deserves a concept and probably hides
+     gotchas); treat near-zero churn as a hint the code may be trivial or
+     generated.
+   - `recent_commits` — recent non-merge subjects, a cheap first read on
+     what the project has been doing lately.
+   - Use these to prioritize; pull the deeper per-concept "why" in Phase 2
+     with `okf-history.sh` (below). If not a git repo, `git.history` is
+     empty — skip history-based reasoning rather than inventing it.
 3. Determine `resource_base`: from config, else from
    `git remote get-url origin` + default branch (convert SSH form to an
    `https://.../blob/<branch>/{path}` form). If the repo has no remote,
@@ -75,6 +90,17 @@ Selection rules by granularity (default: medium):
 - Optionally: `operations/` playbooks if the repo contains runbook-like
   docs; mirror external references into `references/` when the code links
   to essential external documents.
+- Seed a `Design Decision` concept (in `architecture/`) for each ADR/RFC
+  found in `adr_docs`, and mirror truly external decision records into
+  `references/`.
+
+**Use churn to break significance ties.** When deciding whether a
+borderline module/file warrants its own concept, consult `git.history.churn`
+from the inventory: high-churn files are both more important to explain and
+more likely to carry hard-won gotchas, so bias toward giving them a concept
+(and a richer "why" section). Do not create concepts for high-churn files
+that are pure noise (logs, generated data, fixtures) — significance is about
+*coherent responsibility*, not commit count alone.
 
 Present this plan to the user briefly (the table), then proceed — do not
 wait for approval unless the plan exceeds ~40 concepts, in which case ask
@@ -93,15 +119,30 @@ title: <Human-readable name>
 description: <ONE sentence, used in indexes and previews>
 resource: <resource_base with the primary source file path>   # omit for abstract concepts
 tags: [<lowercase-tag>, ...]
-timestamp: <ISO 8601, use the file's last git commit time: git log -1 --format=%cI -- <path>>
+timestamp: <ISO 8601 — the MOST RECENT commit time across this concept's source_files;
+            get each with: git log -1 --format=%cI -- <path>, then take the latest.
+            If a source file is untracked / has no git history, fall back to the current UTC time.>
 source_files:                     # extension field: repo-relative paths this concept derives from
   - path/to/file.py
+generated_by: speckit-okf/0.3.0   # producer extension (OKF §4.1)
+open_questions:                   # extension field: unresolved uncertainties (omit if none)
+  - "Is the retry budget in submit_order() a hard SLA or a heuristic? Source is ambiguous."
 ---
 ```
 
-`source_files` is a producer extension field (permitted by OKF §4.1) — it
-is what makes incremental updates possible. Always include it, and also
-include `generated_by: speckit-okf/0.2.0`.
+`source_files`, `generated_by`, and `open_questions` are producer extension
+fields (permitted by OKF §4.1). `source_files` is what makes incremental
+updates possible, so always include it. Using the *latest* commit time across
+`source_files` for `timestamp` keeps it consistent with how
+`/speckit.okf.update` and the validator detect staleness (they compare
+`timestamp` against each `source_files` entry's last commit time).
+
+`open_questions` is how you **park uncertainty instead of guessing**: when the
+code (and its git history) don't let you state a fact confidently — an intent,
+an invariant, a "why" — add a concrete, answerable question here rather than
+inventing an answer. `/speckit.okf.clarify` collects these, asks the user, and
+folds the answers back into the bodies. Omit the field entirely when a concept
+has no open questions.
 
 ### Body conventions
 
@@ -121,6 +162,26 @@ include `generated_by: speckit-okf/0.2.0`.
   file-by-file paraphrase: purpose, invariants, gotchas, why it is shaped
   the way it is (cite commit messages or ADRs when they explain a
   decision).
+- **Mine git history for the "why".** For each non-trivial concept, run the
+  per-path history helper on its `source_files` before writing the body:
+
+  ```bash
+  .specify/extensions/okf/scripts/bash/okf-history.sh <source-file-or-dir>
+  # deeper (careful — includes diffs; scrub secrets): add --patch
+  # machine-readable: add --json
+  ```
+
+  It returns the creation commit, commit count, recent subjects, and — most
+  valuably — **revert/hotfix/risk-flagged commits** (deadlocks, races,
+  regressions, security fixes). Those are your gotchas and invariants:
+  weave them into the body and cite the commit shas in `# Citations`
+  (e.g. "the multiprocessing path is fork-based because threads deadlocked —
+  see `abc1234`"). Prefer `git blame -L <a>,<b> <file>` on a specific tricky
+  hunk when you need line-level rationale. If history is thin or the "why"
+  still isn't clear, record an `open_questions` entry rather than guessing.
+- **Never leak secrets from history.** Historical diffs (`--patch`, `blame`)
+  can surface credentials that were later removed — describe shape, never
+  values, exactly as you would for current code.
 - Do NOT copy large source excerpts. Short illustrative snippets only.
 - Do NOT include secrets, tokens, credentials, or internal hostnames
   found in the code. If a config file contains secrets, describe its
@@ -177,10 +238,14 @@ backtick-quoted form.
 
 2. Fix any ERRORs (unparseable frontmatter, missing/empty `type`,
    malformed reserved files). WARNINGs (broken links, missing optional
-   fields) are acceptable but list them.
+   fields, unresolved `open_questions` — W8) are acceptable but list them.
 3. Report to the user: concept count by type, bundle tree, validation
-   result, and suggested next steps (review `architecture/overview.md`
-   first; run `/speckit.okf.update` after future code changes).
+   result, **how many concepts carry `open_questions`**, and suggested next
+   steps:
+   - review `architecture/overview.md` first;
+   - run `/speckit.okf.clarify` to resolve the open questions (this is where
+     the highest-value, human-only knowledge gets captured);
+   - run `/speckit.okf.update` after future code changes.
 
 ## Hard rules
 
@@ -190,7 +255,11 @@ backtick-quoted form.
   concepts (§3.1).
 - Concept IDs are file paths minus `.md`; use lowercase, hyphenated
   filenames.
+- Every path in `source_files` must actually exist in the repo (the
+  validator flags dangling entries as W6). Give each concept a unique
+  `type` + `title` combination to avoid duplicate-concept warnings (W7).
 - Never fabricate facts about the code. If behavior is unclear from the
-  source, say so in the concept ("unverified — inferred from X") rather
-  than guessing.
+  source (and git history doesn't settle it), either mark it inline
+  ("unverified — inferred from X") **and** add a concrete `open_questions`
+  entry so `/speckit.okf.clarify` can resolve it — never guess.
 - All writes stay inside `bundle_dir`. Never modify source code.

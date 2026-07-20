@@ -12,15 +12,16 @@ Because OKF bundles are plain markdown in git, the generated bundle is readable 
 
 | Command | What it does |
 | ------- | ------------ |
-| `/speckit.okf.generate` | Bootstrap a full bundle from the repo: inventory scan, concept plan, concept documents, `index.md` files, `log.md`, validation. |
+| `/speckit.okf.generate` | Bootstrap a full bundle from the repo: inventory scan, git-history mining (churn + rationale), concept plan, concept documents, `index.md` files, `log.md`, validation. |
 | `/speckit.okf.update` | Incremental refresh: diffs git history since the last logged commit, surgically updates only stale concepts, deprecates orphans, creates concepts for new code, preserves human curation. |
+| `/speckit.okf.clarify` | Resolves the `open_questions` that generate/update parked (instead of guessing) by asking the user, then folds the answers back into concepts as cited, curation-protected knowledge. |
 | `/speckit.okf.validate` | Runs the OKF §9 conformance checker and a quality spot-check; reports ERRORs/WARNINGs with fixes. |
 
 ## Install
 
 ```bash
 # Option 1: install from a released archive (no catalog needed)
-specify extension add okf --from https://github.com/alexcpn/speckit_ofk/archive/refs/tags/v0.2.0.zip
+specify extension add okf --from https://github.com/alexcpn/speckit_ofk/archive/refs/tags/v0.3.0.zip
 
 # Option 2: install from a local clone (dev mode)
 git clone https://github.com/alexcpn/speckit_ofk.git
@@ -38,10 +39,13 @@ From your coding agent (Claude Code, Copilot, etc.) in the project:
 # 1. Generate the initial knowledge bundle
 /speckit.okf.generate
 
-# 2. After making code changes, refresh incrementally
+# 2. Resolve anything the agent couldn't infer from code + git history
+/speckit.okf.clarify
+
+# 3. After making code changes, refresh incrementally
 /speckit.okf.update
 
-# 3. Validate conformance before committing
+# 4. Validate conformance before committing
 /speckit.okf.validate
 ```
 
@@ -53,9 +57,10 @@ Copy `okf-config.template.yml` to `.specify/extensions/okf/okf-config.yml` to co
 
 ## How it works
 
-1. `scripts/bash/okf-inventory.sh` deterministically scans the repo (entry points, dependency manifests, API definitions, migrations/models, CI/CD, docs) into JSON — so the agent plans from facts, not guesses.
-2. The command prompt instructs the agent to draft a concept plan, then write OKF-conformant documents: required `type` frontmatter, recommended `title`/`description`/`resource`/`tags`/`timestamp`, a producer extension field `source_files` that maps each concept back to code (this is what makes incremental updates possible), bundle-relative cross-links, `index.md` progressive-disclosure files, and an ISO-dated `log.md`.
-3. `scripts/python/validate_okf.py` enforces OKF §9: parseable frontmatter everywhere, non-empty `type`, reserved-file structure — and warns on broken links, missing indexes, empty bodies, and secret-looking strings.
+1. `scripts/bash/okf-inventory.sh` deterministically scans the repo (entry points, dependency manifests, API definitions, migrations/models, CI/CD, docs, ADRs) into JSON — including **git-history signals** (`churn` = per-file commit counts for significance, `recent_commits`) — so the agent plans from facts, not guesses.
+2. `scripts/bash/okf-history.sh <path>` gives the agent bounded, per-concept git history — creation commit, recent subjects, and revert/hotfix/risk-flagged commits — so concepts capture the **"why"** (invariants, gotchas) with commit citations, not just the "what".
+3. The command prompt instructs the agent to draft a concept plan, then write OKF-conformant documents: required `type` frontmatter, recommended `title`/`description`/`resource`/`tags`/`timestamp`, producer extension fields `source_files` (maps each concept back to code — what makes incremental updates possible) and `open_questions` (parks uncertainty for `/speckit.okf.clarify` instead of guessing), bundle-relative cross-links, `index.md` progressive-disclosure files, and an ISO-dated `log.md`.
+4. `scripts/python/validate_okf.py` enforces OKF §9: parseable frontmatter everywhere, non-empty `type`, reserved-file structure — and warns on broken links, missing indexes, empty bodies, secret-looking strings, dangling `source_files`, duplicate concepts, and unresolved `open_questions`.
 
 ## Generated bundle shape (example)
 
@@ -76,7 +81,8 @@ knowledge/
 ## Notes
 
 - The updater never deletes concepts or human-written prose; removed code yields `status: deprecated`, not deletion.
-- Secrets found in configs are described by shape, never by value; the validator flags anything that slips through.
+- The agent parks what it can't verify in `open_questions` rather than guessing; `/speckit.okf.clarify` turns those into human-confirmed, curation-protected facts (marked with `<!-- clarified -->` sentinels the updater won't overwrite).
+- Secrets found in configs — or surfaced by git-history mining — are described by shape, never by value; the validator flags anything that slips through.
 - OKF's permissive consumption model (unknown types OK, broken links OK) is relied on deliberately — generation is safe to run early and often.
 - Both scripts are checked on every push via CodeQL and ShellCheck; see [SECURITY.md](SECURITY.md) to report a vulnerability.
 

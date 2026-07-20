@@ -121,6 +121,35 @@ REMOTE="$(git remote get-url origin 2>/dev/null || echo "")"
 BRANCH="$(git symbolic-ref --short HEAD 2>/dev/null || echo "main")"
 HEAD_SHA="$(git rev-parse --short HEAD 2>/dev/null || echo "")"
 
+# --- git history signals ---------------------------------------------------
+# Bounded, deterministic history to inform *significance* (churn) and the
+# *why* (recent commit subjects). All heavy scans are capped so this stays
+# cheap on large repos. Skipped cleanly when not a git repo.
+HIST_COMMITS="${OKF_HISTORY_COMMITS:-2000}"   # how many recent commits to scan for churn
+HIST_RECENT="${OKF_HISTORY_RECENT:-20}"       # how many recent subjects to surface
+CHURN_TOP="${OKF_CHURN_TOP:-30}"              # top-N hottest files to report
+
+apply_excludes() {
+  grep -vE "$DEFAULT_EXCLUDE" \
+    | { if [[ -n "$CONFIG_EXCLUDE_RE" ]]; then grep -vE "$CONFIG_EXCLUDE_RE"; else cat; fi; }
+}
+
+CHURN=""
+RECENT_COMMITS=""
+COMMITS_SCANNED="0"
+if git rev-parse --git-dir >/dev/null 2>&1; then
+  # Churn: commit-count per file across the last $HIST_COMMITS non-merge
+  # commits. A proxy for "which files carry the most history/gotchas".
+  CHURN="$(git log --no-merges -n "$HIST_COMMITS" --pretty=format: --name-only 2>/dev/null \
+    | sed '/^$/d' \
+    | apply_excludes \
+    | sort | uniq -c | sort -rn | head -"$CHURN_TOP" \
+    | awk '{c=$1; $1=""; sub(/^ /,""); printf "%s\t%s\n", c, $0}')"
+  # Recent commit subjects (no merges) — cheap signal for the "why".
+  RECENT_COMMITS="$(git log --no-merges -n "$HIST_RECENT" --pretty=format:'%h%x09%cI%x09%s' 2>/dev/null || true)"
+  COMMITS_SCANNED="$(git rev-list --no-merges --count -n "$HIST_COMMITS" HEAD 2>/dev/null || echo 0)"
+fi
+
 ALL_FILES="$(list_matching '.')"
 FILE_COUNT="$(printf '%s\n' "$ALL_FILES" | sed '/^$/d' | wc -l | tr -d ' ')"
 
@@ -141,6 +170,9 @@ DB_FILES_RE='(^|/)(migrations?|alembic|db/migrate)/|(model|schema|entit)[^/]*\.(
 OPS_FILES_RE='(^|/)(Dockerfile[^/]*|docker-compose[^/]*\.ya?ml|Makefile|Procfile|[^/]*\.tf|helm/.*|k8s/.*\.ya?ml|\.github/workflows/.*\.ya?ml|\.gitlab-ci\.yml|Jenkinsfile|cloudbuild\.ya?ml)$'
 DOCS_RE='(^|/)(README[^/]*|CONTRIBUTING[^/]*|CHANGELOG[^/]*|ARCHITECTURE[^/]*|docs?/.*)\.(md|rst|txt)$'
 CONFIGS_RE='(^|/)(config|settings|conf)[^/]*\.(py|js|ts|ya?ml|json|toml|ini|env\.example)$'
+# ADR / design-decision docs (rationale goldmine) — matched separately from
+# generic docs so the planner can seed `references/` and Design Decision concepts.
+ADR_RE='(^|/)(adr|adrs|decisions?|rfcs?)/|(^|/)(ADR|RFC)[-_0-9]'
 
 MANIFESTS="$(list_matching "$MANIFESTS_RE" | head -"$CAP")"
 ENTRYPOINTS="$(list_matching "$ENTRYPOINTS_RE" | head -"$CAP")"
@@ -150,6 +182,7 @@ DB_FILES="$(list_matching "$DB_FILES_RE" | head -"$CAP")"
 OPS_FILES="$(list_matching "$OPS_FILES_RE" | head -"$CAP")"
 DOCS="$(list_matching "$DOCS_RE" | head -"$CAP")"
 CONFIGS="$(list_matching "$CONFIGS_RE" | head -"$CAP")"
+ADR_DOCS="$(list_matching "$ADR_RE" | head -"$CAP")"
 
 MANIFESTS_RAW="$(raw_count "$MANIFESTS_RE")"
 ENTRYPOINTS_RAW="$(raw_count "$ENTRYPOINTS_RE")"
@@ -159,6 +192,7 @@ DB_FILES_RAW="$(raw_count "$DB_FILES_RE")"
 OPS_FILES_RAW="$(raw_count "$OPS_FILES_RE")"
 DOCS_RAW="$(raw_count "$DOCS_RE")"
 CONFIGS_RAW="$(raw_count "$CONFIGS_RE")"
+ADR_DOCS_RAW="$(raw_count "$ADR_RE")"
 
 # Top-level directory sizes (proxy for module significance)
 TOPDIRS="$(printf '%s\n' "$ALL_FILES" | sed '/^$/d' | awk -F/ 'NF>1 {print $1}' | sort | uniq -c | sort -rn | head -20 | awk '{printf "%s:%s\n", $2, $1}')"
@@ -184,11 +218,44 @@ categories = {
   "ops_files": category("""$OPS_FILES""", int("$OPS_FILES_RAW" or 0)),
   "docs": category("""$DOCS""", int("$DOCS_RAW" or 0)),
   "config_files": category("""$CONFIGS""", int("$CONFIGS_RAW" or 0)),
+  "adr_docs": category("""$ADR_DOCS""", int("$ADR_DOCS_RAW" or 0)),
 }
+
+def churn_list(raw):
+    out = []
+    for ln in lines(raw):
+        parts = ln.split("\t", 1)
+        if len(parts) == 2:
+            count, path = parts
+            try:
+                out.append({"file": path.strip(), "commits": int(count.strip())})
+            except ValueError:
+                pass
+    return out
+
+def recent_list(raw):
+    out = []
+    for ln in lines(raw):
+        parts = ln.split("\t")
+        if len(parts) >= 3:
+            out.append({"sha": parts[0], "date": parts[1], "subject": "\t".join(parts[2:])})
+    return out
+
+churn = churn_list("""$CHURN""")
 
 inv = {
   "root": os.getcwd(),
-  "git": {"remote": """$REMOTE""", "branch": """$BRANCH""", "head": """$HEAD_SHA"""},
+  "git": {
+    "remote": """$REMOTE""",
+    "branch": """$BRANCH""",
+    "head": """$HEAD_SHA""",
+    "history": {
+      "commits_scanned": int("$COMMITS_SCANNED" or 0),
+      "churn": churn,                              # hottest files (commit count desc)
+      "recent_commits": recent_list("""$RECENT_COMMITS"""),
+      "churn_truncated": len(churn) >= int("$CHURN_TOP" or 0) > 0,
+    },
+  },
   "file_count": int("$FILE_COUNT" or 0),
   "cap": cap,
   "language_histogram": dict(x.split(":") for x in lines("""$LANG_HIST""")),
@@ -201,8 +268,11 @@ with open(sys.argv[1], "w") as f:
 
 print(f"Inventory written to {sys.argv[1]}")
 print(f"  files: {inv['file_count']}  head: {inv['git']['head']}  branch: {inv['git']['branch']}")
+hist = inv["git"]["history"]
+print(f"  git history: {hist['commits_scanned']} commits scanned, "
+      f"{len(hist['churn'])} hot files, {len(hist['recent_commits'])} recent subjects")
 for k in ("dependency_manifests","entrypoints","api_definitions","route_like_files",
-          "data_layer_files","ops_files","docs","config_files"):
+          "data_layer_files","ops_files","docs","config_files","adr_docs"):
     flag = " (truncated)" if k in inv["truncated"] else ""
     print(f"  {k}: {len(inv[k])}{flag}")
 PYEOF

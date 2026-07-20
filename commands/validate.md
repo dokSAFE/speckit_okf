@@ -29,11 +29,13 @@ $ARGUMENTS
    - **WARNINGs** are soft guidance a consumer must tolerate: broken
      cross-links (W2), missing `title`/`description` (W1), missing
      indexes (W3), empty concept bodies (W4), possible secrets (W5),
-     dangling `source_files` entries (W6), and possible duplicate
-     concepts sharing a type+title (W7). Report them grouped by kind;
-     broken links may legitimately represent not-yet-written knowledge.
-     Do not re-derive W4/W5/W6/W7 yourself — the validator already found
-     them; just relay and prioritize.
+     dangling `source_files` entries (W6), possible duplicate concepts
+     sharing a type+title (W7), and unresolved `open_questions` (W8).
+     Report them grouped by kind; broken links may legitimately represent
+     not-yet-written knowledge. For W8, point the user at
+     `/speckit.okf.clarify` to resolve the questions. Do not re-derive
+     W4/W5/W6/W7/W8 yourself — the validator already found them; just
+     relay and prioritize.
 4. Additionally spot-check quality the validator can't mechanically
    judge:
    - Indexes whose entries lack descriptions.
