@@ -12,7 +12,7 @@ Only the latest released version is supported with security fixes.
 ## Reporting a Vulnerability
 
 Please report suspected vulnerabilities privately via
-[GitHub Security Advisories](https://github.com/alexcpn/speckit_ofk/security/advisories/new)
+[GitHub Security Advisories](https://github.com/alexcpn/speckit_okf/security/advisories/new)
 rather than opening a public issue.
 
 Include:

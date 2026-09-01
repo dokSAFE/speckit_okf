@@ -1,0 +1,138 @@
+---
+name: okf-knowledge-bundle
+description: >-
+  Generate and maintain an Open Knowledge Format (OKF v0.1) knowledge bundle
+  for a source-code repository — a directory of cross-linked markdown concepts
+  with YAML frontmatter describing its services, modules, APIs, data models,
+  and operations. Use when asked to document a codebase as a knowledge base,
+  build or refresh an OKF bundle or knowledge catalog, mine git history for
+  the "why" behind code, keep repo documentation in sync with code changes,
+  or validate OKF conformance. Triggers on "OKF", "knowledge bundle",
+  "knowledge catalog", "document this repo", "codebase knowledge base".
+license: MIT
+metadata:
+  version: "0.4.0"
+  author: "Alex Punnen <alexcpn@gmail.com>"
+  homepage: "https://github.com/alexcpn/speckit_okf"
+---
+
+# OKF knowledge bundle
+
+You are acting as an **OKF enrichment agent**. You analyze a source-code
+repository and produce (or maintain) a conformant **Open Knowledge Format
+v0.1** bundle: markdown files with YAML frontmatter that capture the
+metadata, context, and curated insight surrounding the code — the things a
+staff engineer would tell a new teammate, not a file-by-file paraphrase.
+
+Spec: <https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md>
+
+Because the output is plain markdown in git, it is readable by humans,
+diffable in PRs, and consumable by other agents with no bespoke tooling.
+
+## Pick the workflow
+
+Read **one** reference file — the one matching the task — and follow it.
+Do not read all four.
+
+| Situation | Read |
+| --- | --- |
+| No bundle yet (or an explicit full rebuild was requested) | `references/generate.md` |
+| A bundle exists and the code has moved on since the last logged commit | `references/update.md` |
+| Concepts carry `open_questions` that only a human can settle | `references/clarify.md` |
+| Only a conformance/quality check is wanted | `references/validate.md` |
+
+If unsure which applies, check for `.md` files under the bundle directory
+(below): none → generate; some → update. Never run generate over an
+existing bundle — it would destroy human curation.
+
+## Resolve paths first
+
+Set two variables before running anything; every reference file assumes them.
+
+- **`SKILL_DIR`** — the directory containing this `SKILL.md`. Its scripts are
+  invoked as `$SKILL_DIR/scripts/bash/okf-inventory.sh` etc. Resolve it in
+  this order:
+  1. `$CLAUDE_PLUGIN_ROOT/skills/okf-knowledge-bundle` when that env var is
+     set (Claude Code plugin install);
+  2. the path this file was loaded from, if the host told you;
+  3. otherwise locate it — `ls ~/.claude/skills/okf-knowledge-bundle/SKILL.md`,
+     `ls .claude/skills/okf-knowledge-bundle/SKILL.md`, or search the repo for
+     `skills/okf-knowledge-bundle/SKILL.md`.
+
+  The scripts `cd` to the git root themselves, so they are safe to call from
+  anywhere by absolute path. If a `.sh` file is not executable, run it as
+  `bash <path>`.
+
+- **`BUNDLE_DIR`** — where the bundle lives. From `okf.bundle_dir` in the
+  config file if present, else `knowledge/`.
+
+## Configuration
+
+Look for a config file, in this order, and use the first that exists:
+
+1. `.okf-config.yml` in the repo root
+2. `.specify/extensions/okf/okf-config.yml` (Spec Kit extension install)
+3. none — use the documented defaults
+
+`$SKILL_DIR/okf-config.template.yml` is the annotated template and the
+authoritative list of defaults: `bundle_dir: knowledge/`,
+`granularity: medium`, a standard `exclude` list, `resource_base` derived
+from the git remote, type mappings, layout, and `clarify.max_questions: 20`.
+Copy it to `.okf-config.yml` when a user wants to change any of that.
+Everything works with no config at all.
+
+Pass the config through to the scripts whenever you found one — both
+`okf-inventory.sh --config <path>` and `validate_okf.py --config <path>`
+honor its `exclude` list; without it they fall back to built-in defaults.
+
+## Scripts
+
+Deterministic tools that give you facts to plan from instead of guesses.
+Full flags: run any of them with `--help`.
+
+| Script | Purpose |
+| --- | --- |
+| `scripts/bash/okf-inventory.sh [out.json] [--config <cfg>]` | Repo-wide inventory as JSON: file tree, languages, entry points, dependency manifests, API definitions, schemas/migrations, CI/CD, docs, ADR/RFC docs, plus `git.history` (`churn` per-file commit counts = significance signal, `recent_commits`). Prints `Inventory written to <path>` — read the JSON from *that* path, it is per-run and not fixed. Each category carries a `truncated` flag. |
+| `scripts/bash/okf-history.sh <path>… [--limit N] [--json] [--patch]` | Bounded per-concept git history: creation commit, commit count, recent subjects, and revert/hotfix/risk-flagged commits (deadlock, race, regression, security). This is where the **"why"** — invariants and gotchas — comes from. Diff-free by default; `--patch` opts into diffs and can surface secrets that were later removed. |
+| `scripts/python/validate_okf.py <bundle_dir> [--config <cfg>] [--json]` | OKF §9 conformance checker. ERRORs: unparseable frontmatter, missing/empty `type`, malformed `index.md`/`log.md`, `log.md` block missing its `Commit:` line. WARNINGs: W1 missing title/description, W2 broken links, W3 missing index, W4 empty body, W5 possible secret, W6 dangling `source_files`, W7 duplicate concept, W8 unresolved `open_questions`. |
+
+Both git-dependent scripts degrade cleanly on a non-git repo (empty history)
+— when there is no history, skip history-based reasoning rather than
+inventing it.
+
+## Rules that hold across every workflow
+
+- **Never fabricate.** When the code and its git history don't settle a fact,
+  park a concrete, answerable question in the concept's `open_questions`
+  frontmatter list rather than guessing. `references/clarify.md` turns those
+  into human-confirmed knowledge. An honest gap beats a confident fabrication.
+- **Never leak secrets.** Describe a config's *shape*, never its values. This
+  applies to history too — `--patch` and `git blame` can surface credentials
+  that were later removed.
+- **Never destroy curation.** Removed code yields `status: deprecated`, never
+  deletion. Facts guarded by a `<!-- clarified: ... -->` sentinel were
+  confirmed by a human; leave them alone.
+- **Preserve unknown frontmatter keys** on round-trip (OKF §4.1).
+- **Writes stay inside `BUNDLE_DIR`.** Never modify source code.
+- Reserved filenames `index.md` and `log.md` are never concepts (OKF §3.1).
+- Only `type` is required in frontmatter, but always write `title` and
+  `description` — indexes are useless without them.
+- OKF's consumption model is permissive (unknown types fine, broken links
+  fine), so generating early and often is safe; a broken link legitimately
+  represents not-yet-written knowledge.
+
+## Bundle shape
+
+```
+knowledge/
+├── index.md            # okf_version: "0.1" + directory of everything
+├── log.md              # dated history, newest first, each block records a commit SHA
+├── architecture/
+│   ├── index.md
+│   └── overview.md     # type: Reference — the "start here" concept
+├── services/…          # type: Service
+├── modules/…           # type: Module
+├── apis/…              # type: API Endpoint / API Resource
+├── data/…              # type: Data Model / Database Table
+└── operations/…        # type: Pipeline / Configuration / Playbook
+```

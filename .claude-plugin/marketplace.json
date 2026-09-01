@@ -1,0 +1,21 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "speckit-okf",
+  "description": "OKF knowledge-bundle tooling: turn a source-code repository into an Open Knowledge Format v0.1 knowledge base.",
+  "owner": {
+    "name": "Alex Punnen",
+    "email": "alexcpn@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "okf",
+      "source": "./plugins/okf",
+      "description": "Generate, update, clarify, and validate an Open Knowledge Format (OKF v0.1) knowledge bundle for a codebase.",
+      "author": { "name": "Alex Punnen", "email": "alexcpn@gmail.com" },
+      "category": "documentation",
+      "homepage": "https://github.com/alexcpn/speckit_okf",
+      "license": "MIT",
+      "keywords": ["knowledge", "okf", "documentation", "catalog"]
+    }
+  ]
+}
