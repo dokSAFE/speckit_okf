@@ -129,6 +129,19 @@ HIST_COMMITS="${OKF_HISTORY_COMMITS:-2000}"   # how many recent commits to scan 
 HIST_RECENT="${OKF_HISTORY_RECENT:-20}"       # how many recent subjects to surface
 CHURN_TOP="${OKF_CHURN_TOP:-30}"              # top-N hottest files to report
 
+# Take the first N lines WITHOUT closing the pipe early.
+#
+# `head -N` exits as soon as it has N lines, which sends SIGPIPE to whatever is
+# still writing upstream. Under `set -o pipefail` that surfaces as exit 141 and
+# `set -e` then aborts the whole script. It only bites on repositories large
+# enough that the upstream producer is still writing when head leaves — which is
+# exactly the case this tool is for (first reproduced on kubernetes/kubernetes:
+# 500k LOC, 140k commits). awk drains its input to EOF, so nothing upstream ever
+# sees a closed pipe.
+take() {
+  awk -v n="$1" 'NR<=n'
+}
+
 apply_excludes() {
   grep -vE "$DEFAULT_EXCLUDE" \
     | { if [[ -n "$CONFIG_EXCLUDE_RE" ]]; then grep -vE "$CONFIG_EXCLUDE_RE"; else cat; fi; }
@@ -143,7 +156,7 @@ if git rev-parse --git-dir >/dev/null 2>&1; then
   CHURN="$(git log --no-merges -n "$HIST_COMMITS" --pretty=format: --name-only 2>/dev/null \
     | sed '/^$/d' \
     | apply_excludes \
-    | sort | uniq -c | sort -rn | head -"$CHURN_TOP" \
+    | sort | uniq -c | sort -rn | take "$CHURN_TOP" \
     | awk '{c=$1; $1=""; sub(/^ /,""); printf "%s\t%s\n", c, $0}')"
   # Recent commit subjects (no merges) — cheap signal for the "why".
   RECENT_COMMITS="$(git log --no-merges -n "$HIST_RECENT" --pretty=format:'%h%x09%cI%x09%s' 2>/dev/null || true)"
@@ -155,11 +168,11 @@ FILE_COUNT="$(printf '%s\n' "$ALL_FILES" | sed '/^$/d' | wc -l | tr -d ' ')"
 
 # Language histogram by extension (top 15)
 LANG_HIST="$(printf '%s\n' "$ALL_FILES" | sed '/^$/d' \
-  | awk -F. 'NF>1 {print $NF}' | sort | uniq -c | sort -rn | head -15 \
+  | awk -F. 'NF>1 {print $NF}' | sort | uniq -c | sort -rn | take 15 \
   | awk '{printf "%s:%s\n", $2, $1}')"
 
 # Each category: raw match count vs capped count, so the caller can detect
-# truncation. head -"$CAP" applied uniformly across every category.
+# truncation. take "$CAP" applied uniformly across every category.
 raw_count() { list_matching "$1" | sed '/^$/d' | wc -l | tr -d ' '; }
 
 MANIFESTS_RE='(^|/)(package\.json|pyproject\.toml|setup\.py|requirements[^/]*\.txt|go\.mod|Cargo\.toml|pom\.xml|build\.gradle(\.kts)?|Gemfile|composer\.json|\.csproj)$'
@@ -174,15 +187,15 @@ CONFIGS_RE='(^|/)(config|settings|conf)[^/]*\.(py|js|ts|ya?ml|json|toml|ini|env\
 # generic docs so the planner can seed `references/` and Design Decision concepts.
 ADR_RE='(^|/)(adr|adrs|decisions?|rfcs?)/|(^|/)(ADR|RFC)[-_0-9]'
 
-MANIFESTS="$(list_matching "$MANIFESTS_RE" | head -"$CAP")"
-ENTRYPOINTS="$(list_matching "$ENTRYPOINTS_RE" | head -"$CAP")"
-API_DEFS="$(list_matching "$API_DEFS_RE" | head -"$CAP")"
-ROUTES="$(list_matching "$ROUTES_RE" | head -"$CAP")"
-DB_FILES="$(list_matching "$DB_FILES_RE" | head -"$CAP")"
-OPS_FILES="$(list_matching "$OPS_FILES_RE" | head -"$CAP")"
-DOCS="$(list_matching "$DOCS_RE" | head -"$CAP")"
-CONFIGS="$(list_matching "$CONFIGS_RE" | head -"$CAP")"
-ADR_DOCS="$(list_matching "$ADR_RE" | head -"$CAP")"
+MANIFESTS="$(list_matching "$MANIFESTS_RE" | take "$CAP")"
+ENTRYPOINTS="$(list_matching "$ENTRYPOINTS_RE" | take "$CAP")"
+API_DEFS="$(list_matching "$API_DEFS_RE" | take "$CAP")"
+ROUTES="$(list_matching "$ROUTES_RE" | take "$CAP")"
+DB_FILES="$(list_matching "$DB_FILES_RE" | take "$CAP")"
+OPS_FILES="$(list_matching "$OPS_FILES_RE" | take "$CAP")"
+DOCS="$(list_matching "$DOCS_RE" | take "$CAP")"
+CONFIGS="$(list_matching "$CONFIGS_RE" | take "$CAP")"
+ADR_DOCS="$(list_matching "$ADR_RE" | take "$CAP")"
 
 MANIFESTS_RAW="$(raw_count "$MANIFESTS_RE")"
 ENTRYPOINTS_RAW="$(raw_count "$ENTRYPOINTS_RE")"
@@ -195,7 +208,7 @@ CONFIGS_RAW="$(raw_count "$CONFIGS_RE")"
 ADR_DOCS_RAW="$(raw_count "$ADR_RE")"
 
 # Top-level directory sizes (proxy for module significance)
-TOPDIRS="$(printf '%s\n' "$ALL_FILES" | sed '/^$/d' | awk -F/ 'NF>1 {print $1}' | sort | uniq -c | sort -rn | head -20 | awk '{printf "%s:%s\n", $2, $1}')"
+TOPDIRS="$(printf '%s\n' "$ALL_FILES" | sed '/^$/d' | awk -F/ 'NF>1 {print $1}' | sort | uniq -c | sort -rn | take 20 | awk '{printf "%s:%s\n", $2, $1}')"
 
 # --- emit ------------------------------------------------------------------
 python3 - "$OUT" "$CAP" <<PYEOF
