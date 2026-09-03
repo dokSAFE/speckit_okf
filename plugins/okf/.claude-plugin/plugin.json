@@ -1,7 +1,7 @@
 {
   "name": "okf",
   "description": "Generate and maintain an Open Knowledge Format (OKF v0.1) knowledge bundle from a source-code repository: cross-linked markdown concepts for services, modules, APIs, data models, and operations, with git history mined for the \"why\".",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "author": {
     "name": "Alex Punnen",
     "email": "alexcpn@gmail.com"

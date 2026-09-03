@@ -1,5 +1,41 @@
 # Changelog
 
+## [0.5.0](https://github.com/alexcpn/speckit_okf/releases/tag/v0.5.0) — 2026-09-03
+* **Fixed: `okf-inventory.sh` aborted with exit 141 on large repositories.**
+  Twelve pipelines ended in `head -N`, which closes the pipe and sends
+  SIGPIPE upstream; under `set -o pipefail` that became exit 141 and `set -e`
+  killed the script. It never fired on small repos, because the producer
+  finishes writing before `head` leaves — so it only broke on exactly the
+  repositories the tool exists for. Reproduced on `kubernetes/kubernetes`
+  (500,022 LOC, 25,917 files, 140,761 commits): every run failed with no
+  output. Replaced with a `take()` helper built on awk, which drains to EOF.
+  After the fix: exit 0 in 2.11s, writing a 56 KB inventory.
+* **Richer, self-verifying concept generation.** The generate workflow was
+  producing readable but thin concepts — prose a reader could not check
+  against the code, in a bundle an agent could not traverse. Four changes:
+  - `# Interfaces` is now **required** for Service and Module concepts and
+    must be *extracted*, with per-language grep recipes for Go, Python,
+    TS/JS and Java/C#, plus guidance to select ~5–15 caller-relevant entries
+    and drop test fakes.
+  - `# Dependencies` is now **derived from actual imports**, with extraction
+    commands per language, mapping each internal import to the concept whose
+    `source_files` owns that path. An orphan concept now explicitly signals
+    that this step was skipped.
+  - History mining no longer stops at the subject line. The workflow requires
+    reading the highest-signal commits (`git show --stat`, full `%B`) and,
+    for any `Revert "X"`, finding and reading the original X — the pair is
+    what carries the invariant. Adds a "write the rule, not the anecdote"
+    instruction with a worked before/after.
+  - `open_questions` are now **interrogated** rather than incidental, against
+    five fixed categories: guarantees, ordering, failure, compatibility,
+    ownership.
+* Measured effect of the above on a 9-concept bundle for Kubernetes'
+  `pkg/kubelet` (108,648 LOC): bundle +41% (15,835 → 22,386 bytes), open
+  questions 2 → 11, cross-links 18 → 27, concepts carrying `# Interfaces`
+  2 → 8 — while the **service-level routing entry stayed flat at ~2.7 KB**.
+  Added detail lands in module concepts, so it does not cost routing budget.
+* `generated_by` bumped to `speckit-okf/0.5.0`.
+
 ## [0.4.0](https://github.com/alexcpn/speckit_okf/releases/tag/v0.4.0) — 2026-09-01
 * **Packaged as an Agent Skill.** The four workflows are now also available as
   a portable `SKILL.md` skill at

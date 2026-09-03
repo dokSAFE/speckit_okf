@@ -11,7 +11,7 @@ description: >-
   "knowledge catalog", "document this repo", "codebase knowledge base".
 license: MIT
 metadata:
-  version: "0.4.0"
+  version: "0.5.0"
   author: "Alex Punnen <alexcpn@gmail.com>"
   homepage: "https://github.com/alexcpn/speckit_okf"
 ---

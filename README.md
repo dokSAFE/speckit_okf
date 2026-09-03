@@ -50,7 +50,7 @@ Claude Agent SDK, point your skill source directory at the same folder.
 
 ```bash
 # Option 1: install from a released archive (no catalog needed)
-specify extension add okf --from https://github.com/alexcpn/speckit_okf/archive/refs/tags/v0.4.0.zip
+specify extension add okf --from https://github.com/alexcpn/speckit_okf/archive/refs/tags/v0.5.0.zip
 
 # Option 2: install from a local clone (dev mode)
 git clone https://github.com/alexcpn/speckit_okf.git
@@ -118,6 +118,7 @@ knowledge/
 - Secrets found in configs — or surfaced by git-history mining — are described by shape, never by value; the validator flags anything that slips through.
 - OKF's permissive consumption model (unknown types OK, broken links OK) is relied on deliberately — generation is safe to run early and often.
 - The scripts are checked on every push via CodeQL and ShellCheck; see [SECURITY.md](SECURITY.md) to report a vulnerability.
+- Measured on Kubernetes' `pkg/kubelet` (108,648 lines of Go): a 9-concept bundle is 21.9 KB, of which the service-level entry an agent needs for routing is 2.6 KB (~676 tokens). `okf-inventory` scans the full 500k-line Kubernetes tree in 2.1 seconds. On a monorepo, start at `granularity: coarse` and raise `OKF_INVENTORY_CAP` above its default of 150 — and note that raw churn skews toward generated files and build config, so invest in `exclude`.
 - The scripts and config template at the repo root are canonical; the skill carries copies so it stays portable. `scripts/sync-skill.sh` resyncs them and CI fails on drift (`scripts/sync-skill.sh --check`).
 - `scripts/python/validate_skill.py <skill_dir>` lints the `SKILL.md` frontmatter and its referenced paths; it also runs in CI.
 
