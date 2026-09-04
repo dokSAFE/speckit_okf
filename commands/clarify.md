@@ -1,110 +1,102 @@
 ---
-description: "Resolve open questions in the OKF knowledge bundle by asking the user, then fold answers back into the concepts"
+description: "Surface uncertainty OpenWiki parked in the OKF bundle, ask the user about it, and feed confirmed answers back via openwiki/INSTRUCTIONS.md"
+scripts:
+  sh: ../../scripts/bash/okf-preflight.sh
 ---
 
-# /speckit.okf.clarify — Resolve open questions with the user
+# /speckit.okf.clarify — Resolve parked uncertainty
 
-You are acting as an **OKF enrichment agent** running a clarification pass.
-Generation and update deliberately **park uncertainty** instead of guessing:
-whenever a fact (an intent, an invariant, a "why") could not be established
-from the code or its git history, they record an `open_questions` entry in a
-concept's frontmatter. Your job here is to collect those questions, ask the
-user, and fold the answers back into the bundle as durable, cited knowledge.
+**This command works differently from the original speckit_okf
+`/speckit.okf.clarify`.** The original relied on an `open_questions`
+frontmatter field the agent wrote by hand. OpenWiki has no equivalent
+concept — it deliberately prefers to write only what it can verify from
+source and cite as a Claim, rather than parking a question in frontmatter.
+So instead of reading a structured field, this command **greps page bodies
+for uncertainty language**, asks you about what it finds, and writes your
+confirmed answers into `openwiki/INSTRUCTIONS.md` — the one file in the
+bundle OpenWiki reads on every run but never overwrites — so the next
+`/speckit.okf.update` incorporates them as grounding context.
 
-This is where the highest-value, human-only knowledge enters the KB — the
-things that were never written in any commit message. Treat the answers as
-**human curation**: once captured, later `/speckit.okf.update` runs must
-preserve them.
-
-User input (optional scope hints — e.g. a subdir, a concept, or "security"):
+User input (optional scope hints — e.g. a subdirectory of the bundle to
+focus on):
 
 $ARGUMENTS
 
-## Steps
+## Phase 0 — Preflight
 
-1. **Locate state.** Read `bundle_dir` from
-   `.specify/extensions/okf/okf-config.yml` (default `knowledge/`). If it
-   doesn't exist or has no `.md` files, stop and tell the user to run
-   `/speckit.okf.generate` first.
+Run:
 
-2. **Collect open questions.** Scan every concept file's frontmatter for a
-   non-empty `open_questions:` list. Build a work list of
-   `(concept_path, question)` pairs. Honor any scope hint in `$ARGUMENTS`
-   (restrict to a subtree, a single concept, or questions matching a topic).
-   If there are none, report "no open questions — bundle is fully clarified"
-   and stop.
+```bash
+.specify/extensions/okf/scripts/bash/okf-preflight.sh --config .specify/extensions/okf/okf-config.yml
+```
 
-3. **Prioritize and budget.** Do not fire off dozens of questions blindly.
-   - Rank by impact: invariants, data semantics, security/safety behavior,
-     and anything affecting correctness come first; cosmetic or trivia last.
-   - Ask in **batches** grouped by concept or theme, at most
-     `clarify.max_questions` per run (config; default 20). If more remain,
-     resolve the top batch and tell the user to re-run for the rest.
-   - Before asking, make one more attempt to answer cheaply from history:
-     `.specify/extensions/okf/scripts/bash/okf-history.sh <source-files>`.
-     Ignore commits marked `[TEST-ONLY]` — they cannot settle a question
-     about production behaviour.
-     If a commit clearly answers it, resolve it from that (cite the sha) and
-     don't spend a user question on it.
+If it reports `PREFLIGHT: BLOCKED`, stop and show the user its output. If
+`openwiki/` doesn't exist yet, tell the user to run `/speckit.okf.generate`
+first and stop.
 
-4. **Ask the user.** Present the batch as a numbered list, each item showing:
-   the concept it belongs to, the question, and (briefly) why it matters /
-   what you'd write given a plausible answer. Make questions **specific and
-   answerable** ("Is X a hard SLA or best-effort?"), never open-ended
-   ("tell me about X"). Let the user answer some, skip others, or say
-   "don't know".
+## Phase 1 — Find parked uncertainty
 
-5. **Fold answers back in — surgically.** For each answered question:
-   - Edit the concept body to state the now-verified fact in the right
-     section (`# Responsibilities`, `# Schema`, a gotcha note, etc.).
-   - Mark the sentence/section as clarified so the updater won't clobber it,
-     using an HTML comment sentinel immediately before or after it:
-
-     ```markdown
-     <!-- clarified: 2026-07-20 — retry budget is a hard SLA (confirmed by owner) -->
-     The retry budget in `submit_order()` is a **hard SLA**, not a heuristic.
-     ```
-
-   - Remove that entry from the concept's `open_questions` list. If the list
-     becomes empty, remove the `open_questions` key entirely.
-   - Update the concept's `timestamp` to now (ISO 8601).
-   - For **skipped / "don't know"** questions: leave the `open_questions`
-     entry in place (optionally append ` (asked <date>, unresolved)`), so a
-     future run can revisit it. Never delete an unanswered question.
-
-6. **Maintain reserved files.**
-   - Prepend a dated entry to `log.md`, newest first (OKF §7), with the
-     required `Commit:` line (current `HEAD`) as the first line under the
-     heading:
-
-     ```markdown
-     ## <YYYY-MM-DD>
-     Commit: `<head-sha>`
-     * **Clarification**: Resolved 4 open questions across [Checkout Service](/services/checkout.md) and [Orders](/data/orders.md); 2 left unresolved.
-     ```
-
-   - `index.md` files rarely change here (descriptions may, if an answer
-     changes a concept's one-liner) — update them only when they do.
-
-7. **Validate and report.** Run
+1. Load `okf.clarify.uncertainty_markers` and `okf.clarify.max_questions`
+   from `.specify/extensions/okf/okf-config.yml` if present, else use the
+   defaults in `okf-config.template.yml` (markers: "unclear", "not clear
+   from", "unable to verify", "unverified", "TODO", "not documented",
+   "unknown whether"; max_questions: 20).
+2. Grep the bundle (respecting any $ARGUMENTS scope) for those markers,
+   case-insensitively, across `openwiki/**/*.md` excluding `index.md` and
+   `INSTRUCTIONS.md`:
 
    ```bash
-   python3 .specify/extensions/okf/scripts/python/validate_okf.py <bundle_dir> --config .specify/extensions/okf/okf-config.yml
+   grep -rniE '(unclear|not clear from|unable to verify|unverified|TODO|not documented|unknown whether)' openwiki --include='*.md' | grep -v '/index.md:'
    ```
 
-   Fix any ERRORs, then summarize: N questions resolved, N skipped, N
-   remaining (W8 count), and whether another `/speckit.okf.clarify` run is
-   warranted.
+   (Substitute the actual configured marker list if it differs from the
+   default shown above.)
+3. For each hit, read enough surrounding context in that page to turn it
+   into one concrete, answerable question — never an open-ended one. Group
+   hits from the same page into a single question when they're about the
+   same fact. Cap the list at `max_questions`; if there are more, ask about
+   the highest-value ones (pages describing services/APIs/data models over
+   peripheral ones) and tell the user how many were deferred to a later run.
+4. If nothing is found, tell the user the bundle currently has no parked
+   uncertainty worth asking about, and stop here.
 
-## Hard rules
+## Phase 2 — Ask the user
 
-- **Never invent an answer.** If the user doesn't answer, the question stays
-  in `open_questions` — an honest gap beats a confident fabrication.
-- Answers are human curation: preserve them on future updates. Always emit
-  the `<!-- clarified: ... -->` sentinel so `/speckit.okf.update` knows not
-  to overwrite the surrounding fact.
-- Preserve unknown frontmatter keys on round-trip (OKF §4.1); only touch
-  `open_questions`, `timestamp`, and the body sections you are resolving.
-- Batch and budget questions; a clarify run that spams the user is worse
-  than one that resolves the top few and defers the rest.
-- Never modify source code; all writes stay inside `bundle_dir`.
+Present the questions to the user (concrete, one fact at a time — e.g. "In
+`services/checkout.md` it's unclear whether the 30s payment-provider timeout
+is a hard SLA or a tunable default — which is it, and who owns that
+decision?"). Wait for their answers. Do not guess or fabricate an answer on
+their behalf; if they don't know either, say so and move on rather than
+inventing something.
+
+## Phase 3 — Record confirmed answers
+
+For each answered question:
+
+1. Open `openwiki/INSTRUCTIONS.md` (create it with a short header comment if
+   it doesn't exist yet — OpenWiki reads this file but never writes it, so
+   it's always safe for you to edit).
+2. Append a dated entry under a `## Clarifications` section, in this form:
+
+   ```markdown
+   ## Clarifications
+
+   - (2026-09-04) services/checkout.md — payment-provider timeout: hard SLA,
+     30s, owned by the Payments team. Confirmed by Didier.
+   ```
+
+   Keep each entry to the confirmed fact plus enough pointer (page path) for
+   OpenWiki to find and ground it next run. Do not editorialize or add
+   anything the user did not actually confirm.
+3. Do **not** edit the OKF pages themselves in this command — leave that to
+   `/speckit.okf.update`, which will read the refreshed
+   `openwiki/INSTRUCTIONS.md` and can then write the confirmed fact into the
+   page as a properly evidenced Claim (citing the source that best supports
+   it, or citing the instructions file itself if the fact is genuinely
+   only known to a human).
+
+## Phase 4 — Report
+
+Tell the user how many questions were asked/answered/deferred, that the
+answers are recorded in `openwiki/INSTRUCTIONS.md`, and that running
+`/speckit.okf.update` next will fold them into the bundle.
