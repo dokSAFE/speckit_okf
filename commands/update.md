@@ -12,6 +12,14 @@ User input (optional scope hints):
 
 $ARGUMENTS
 
+## Requires git
+
+This workflow is a diff between two commits, so it cannot run without version
+control. If the project is not a git repository, stop and tell the user: the
+bundle can only be refreshed by re-running `/speckit.okf.generate` over the
+current tree, and incremental update becomes available once the project is
+under version control.
+
 ## Steps
 
 1. **Locate state.** Read `bundle_dir` from

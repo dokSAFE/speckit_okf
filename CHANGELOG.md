@@ -34,6 +34,19 @@
   questions 2 → 11, cross-links 18 → 27, concepts carrying `# Interfaces`
   2 → 8 — while the **service-level routing entry stayed flat at ~2.7 KB**.
   Added detail lands in module concepts, so it does not cost routing budget.
+* **Works on projects that are not under version control.** The inventory
+  reported a fabricated `branch: main` outside a repository, and rule E4 made
+  a conformant bundle impossible there: every `log.md` date block must carry
+  `Commit: <sha>`, and there is no SHA to write. E4 now accepts the literal
+  `none` and is skipped entirely when the bundle's repo root has no `.git`;
+  the inventory reports a new `git.is_git_repo` boolean and an empty branch,
+  so consumers can tell "not a repository" from "repository with no remote".
+  The workflows now say what to do in that case: skip history-based reasoning
+  rather than inventing it, take `timestamp` from file modification time, omit
+  `resource:` without a configured base, write ``Commit: `none` ``, and expect
+  to raise more `open_questions` because the "why" can only come from a human.
+  `/speckit.okf.update` states up front that it requires git, being a diff
+  between two commits.
 * `generated_by` bumped to `speckit-okf/0.5.0`.
 
 ## [0.4.0](https://github.com/alexcpn/speckit_okf/releases/tag/v0.4.0) — 2026-09-01

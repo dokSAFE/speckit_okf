@@ -96,9 +96,24 @@ Full flags: run any of them with `--help`.
 | `scripts/bash/okf-history.sh <path>… [--limit N] [--json] [--patch]` | Bounded per-concept git history: creation commit, commit count, recent subjects, and revert/hotfix/risk-flagged commits (deadlock, race, regression, security). This is where the **"why"** — invariants and gotchas — comes from. Diff-free by default; `--patch` opts into diffs and can surface secrets that were later removed. |
 | `scripts/python/validate_okf.py <bundle_dir> [--config <cfg>] [--json]` | OKF §9 conformance checker. ERRORs: unparseable frontmatter, missing/empty `type`, malformed `index.md`/`log.md`, `log.md` block missing its `Commit:` line. WARNINGs: W1 missing title/description, W2 broken links, W3 missing index, W4 empty body, W5 possible secret, W6 dangling `source_files`, W7 duplicate concept, W8 unresolved `open_questions`. |
 
-Both git-dependent scripts degrade cleanly on a non-git repo (empty history)
-— when there is no history, skip history-based reasoning rather than
-inventing it.
+**Working without git.** Everything except history mining still works. The
+inventory reports `git.is_git_repo: false` and empty history; `okf-history.sh`
+prints a notice and exits 0 with no output. When that is the case:
+
+- Skip history-based reasoning entirely rather than inventing it. No churn
+  signal, no revert-derived gotchas, no commit citations.
+- Take `timestamp` from the file's modification time instead of its last
+  commit.
+- Omit `resource:` unless the config supplies a `resource_base`, since there
+  is no remote to derive one from.
+- Write ``Commit: `none` `` in `log.md`. The validator accepts that in place
+  of a SHA, so a bundle built outside git can still be conformant.
+- Expect more `open_questions`, not fewer. Without history, the "why" has to
+  come from a human, so ask rather than guess.
+
+If a command is missing from `PATH`, the package is installed but its shell
+has not been refreshed: tell the user to open a new terminal, or to re-run
+`uv tool install --native-tls <source>`.
 
 ## Rules that hold across every workflow
 
