@@ -1,0 +1,25 @@
+name: Skill
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Skill assets match the canonical ones at the repo root
+        run: ./scripts/sync-skill.sh --check
+
+      - name: Plugin and marketplace manifests are valid JSON
+        run: |
+          python3 -c "import json,sys; [json.load(open(p)) for p in sys.argv[1:]]" \
+            .claude-plugin/marketplace.json \
+            plugins/okf/.claude-plugin/plugin.json
+
+      - name: SKILL.md frontmatter is valid
+        run: python3 scripts/python/validate_skill.py plugins/okf/skills/okf-knowledge-bundle

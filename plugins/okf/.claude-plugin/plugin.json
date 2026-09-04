@@ -1,0 +1,13 @@
+{
+  "name": "okf",
+  "description": "Generate and maintain an Open Knowledge Format (OKF v0.1) knowledge bundle from a source-code repository: cross-linked markdown concepts for services, modules, APIs, data models, and operations, with git history mined for the \"why\".",
+  "version": "0.5.0",
+  "author": {
+    "name": "Alex Punnen",
+    "email": "alexcpn@gmail.com"
+  },
+  "homepage": "https://github.com/alexcpn/speckit_okf",
+  "repository": "https://github.com/alexcpn/speckit_okf",
+  "license": "MIT",
+  "keywords": ["knowledge", "okf", "documentation", "metadata", "catalog", "git-history"]
+}

@@ -1,8 +1,4 @@
----
-description: "Generate an Open Knowledge Format (OKF v0.1) knowledge bundle from this repository's source code"
----
-
-# /speckit.okf.generate — Bootstrap an OKF knowledge bundle
+# Generate — bootstrap an OKF knowledge bundle
 
 You are acting as an **OKF enrichment agent**. Your job is to analyze this
 repository and produce a conformant **Open Knowledge Format (OKF v0.1)**
@@ -11,31 +7,31 @@ captures the metadata, context, and curated insight surrounding this codebase.
 
 Spec: https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md
 
-User input (optional focus/scope hints):
-
-$ARGUMENTS
+Scope hints: use any focus/scope the user gave (a subdirectory, a
+subsystem, a granularity preference); otherwise cover the whole repo.
 
 ## Phase 0 — Configuration and inventory
 
-1. Load configuration from `.specify/extensions/okf/okf-config.yml` if
-   it exists; otherwise use the defaults in `okf-config.template.yml`
-   (`bundle_dir: knowledge/`, `granularity: medium`).
-2. **Guard against clobbering curation.** If `bundle_dir` already exists
+1. Resolve `SKILL_DIR`, `CONFIG`, and `BUNDLE_DIR` as described in
+   `SKILL.md`. If no config file exists, use the defaults documented in
+   `$SKILL_DIR/okf-config.template.yml` (`bundle_dir: knowledge/`,
+   `granularity: medium`).
+2. **Guard against clobbering curation.** If `BUNDLE_DIR` already exists
    and contains one or more `.md` files (whether or not `log.md` is
    present — a hand-seeded or partial bundle is still real curation),
-   STOP here and tell the user to run `/speckit.okf.update` instead;
+   STOP here and tell the user to run the **update** workflow instead;
    regenerating from scratch would destroy that curation. Only proceed if
-   the user explicitly asked for a full rebuild in $ARGUMENTS. If `bundle_dir` doesn't
+   the user explicitly asked for a full rebuild. If `BUNDLE_DIR` doesn't
    exist or is empty, continue.
 3. Run the inventory script and read the path it prints (do not assume a
    fixed location — the script picks a per-run temp file to avoid
    collisions with concurrent runs):
 
    ```bash
-   # if okf-config.yml exists, pass it so its exclude list is honored:
-   .specify/extensions/okf/scripts/bash/okf-inventory.sh --config .specify/extensions/okf/okf-config.yml
+   # if a config file was found, pass it so its exclude list is honored:
+   $SKILL_DIR/scripts/bash/okf-inventory.sh --config "$CONFIG"
    # otherwise run without --config to use the script's built-in defaults:
-   .specify/extensions/okf/scripts/bash/okf-inventory.sh
+   $SKILL_DIR/scripts/bash/okf-inventory.sh
    ```
 
    The script prints `Inventory written to <path>` — read the JSON from
@@ -111,12 +107,11 @@ whether to coarsen granularity.
 
 ## Phase 2 — Write the bundle
 
-Create the bundle under `bundle_dir` following OKF §3–§8 exactly:
+Create the bundle under `BUNDLE_DIR` following OKF §3–§8 exactly:
 
 ### Frontmatter (every concept file)
 
 ```yaml
----
 type: <Type>                      # REQUIRED, non-empty
 title: <Human-readable name>
 description: <ONE sentence, used in indexes and previews>
@@ -130,20 +125,19 @@ source_files:                     # extension field: repo-relative paths this co
 generated_by: speckit-okf/0.5.0   # producer extension (OKF §4.1)
 open_questions:                   # extension field: unresolved uncertainties (omit if none)
   - "Is the retry budget in submit_order() a hard SLA or a heuristic? Source is ambiguous."
----
 ```
 
 `source_files`, `generated_by`, and `open_questions` are producer extension
 fields (permitted by OKF §4.1). `source_files` is what makes incremental
 updates possible, so always include it. Using the *latest* commit time across
 `source_files` for `timestamp` keeps it consistent with how
-`/speckit.okf.update` and the validator detect staleness (they compare
+the **update** workflow and the validator detect staleness (they compare
 `timestamp` against each `source_files` entry's last commit time).
 
 `open_questions` is how you **park uncertainty instead of guessing**: when the
 code (and its git history) don't let you state a fact confidently — an intent,
 an invariant, a "why" — add a concrete, answerable question here rather than
-inventing an answer. `/speckit.okf.clarify` collects these, asks the user, and
+inventing an answer. The **clarify** workflow collects these, asks the user, and
 folds the answers back into the bodies. Omit the field entirely when a concept
 has no open questions.
 
@@ -245,7 +239,7 @@ For each non-trivial concept, run the per-path history helper on its
 `source_files` before writing the body:
 
 ```bash
-.specify/extensions/okf/scripts/bash/okf-history.sh <source-file-or-dir>
+$SKILL_DIR/scripts/bash/okf-history.sh <source-file-or-dir>
 # machine-readable: add --json ; cap the list: --limit N
 ```
 
@@ -343,7 +337,7 @@ Commit: `<short-sha>`
 ```
 
 The `Commit:` line is REQUIRED and machine-checked (validator rule E4) —
-it is what `/speckit.okf.update` reads to resume incrementally. Always
+it is what the **update** workflow reads to resume incrementally. Always
 write it as the first line under the date heading, exactly in that
 backtick-quoted form.
 
@@ -358,7 +352,7 @@ control.
 1. Run the conformance checker:
 
    ```bash
-   python3 .specify/extensions/okf/scripts/python/validate_okf.py <bundle_dir> --config .specify/extensions/okf/okf-config.yml
+   python3 $SKILL_DIR/scripts/python/validate_okf.py "$BUNDLE_DIR" --config "$CONFIG"   # drop --config if none was found
    ```
 
 2. Fix any ERRORs (unparseable frontmatter, missing/empty `type`,
@@ -368,9 +362,9 @@ control.
    result, **how many concepts carry `open_questions`**, and suggested next
    steps:
    - review `architecture/overview.md` first;
-   - run `/speckit.okf.clarify` to resolve the open questions (this is where
+   - run the **clarify** workflow to resolve the open questions (this is where
      the highest-value, human-only knowledge gets captured);
-   - run `/speckit.okf.update` after future code changes.
+   - run the **update** workflow after future code changes.
 
 ## Hard rules
 
@@ -386,5 +380,5 @@ control.
 - Never fabricate facts about the code. If behavior is unclear from the
   source (and git history doesn't settle it), either mark it inline
   ("unverified — inferred from X") **and** add a concrete `open_questions`
-  entry so `/speckit.okf.clarify` can resolve it — never guess.
-- All writes stay inside `bundle_dir`. Never modify source code.
+  entry so the **clarify** workflow can resolve it — never guess.
+- All writes stay inside `BUNDLE_DIR`. Never modify source code.
