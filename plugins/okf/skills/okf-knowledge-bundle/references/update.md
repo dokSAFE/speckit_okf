@@ -85,6 +85,12 @@ control.
      unless the underlying code genuinely contradicts it — in which case
      flag the conflict as a new `open_questions` entry rather than silently
      rewriting it.
+   - Skip commits marked `[TEST-ONLY]`: they changed only test files and
+     carry no production invariant. Check each flagged commit's file list
+     before attributing it to this concept. Re-run
+     `$SKILL_DIR/scripts/python/okf-cochange.py <path>` too — a coupling that has appeared
+     or disappeared since the last update is a real change to the concept's
+     Dependencies section.
    - Use `$SKILL_DIR/scripts/bash/okf-history.sh <path>` on the
      changed files to ground *why* they changed (revert/hotfix signals) so
      refreshed sections keep the "why", not just the "what".
@@ -115,6 +121,7 @@ control.
 
    ```bash
    python3 $SKILL_DIR/scripts/python/validate_okf.py "$BUNDLE_DIR" --config "$CONFIG"   # drop --config if none was found
+   python3 $SKILL_DIR/scripts/python/verify_okf.py   "$BUNDLE_DIR"                       # do its claims hold?
    ```
 
    fix ERRORs, then summarize: N updated, N created, N deprecated, N new

@@ -1,5 +1,58 @@
 # Changelog
 
+## [0.6.0](https://github.com/alexcpn/speckit_okf/releases/tag/v0.6.0) — 2026-09-07
+
+Ported from the companion [catalogify](https://github.com/alexcpn/catalogify)
+project, where every one of these was found by running the workflow against
+public repositories and checking what came out.
+
+* **New: `/speckit.okf.verify` — a check on truth, not structure.**
+  `validate` only ever asked whether a bundle is well-formed. It said nothing
+  about whether any of it is *true*. `verify_okf.py` resolves each claim back
+  to the repository: every cited commit must exist and touch that concept's own
+  `source_files` (V1, V2) and must not be test-only (V3); every symbol in
+  `# Interfaces` must appear in non-test code (V4); a `# Gotchas` section must
+  cite something (V5); every `source_files` path must be tracked by git (V8).
+  Notes cover dependency links no import backs (V6) and Go "import cycles",
+  which the compiler forbids (V7). Run against a kubelet bundle it reproduces,
+  unaided, every error previously found by hand — including three test-only
+  commits written up as production invariants.
+
+* **`okf-history.sh` lists the files each flagged commit touched, and marks
+  test-only ones.** The old output was subject lines, and agents wrote
+  invariants from them: "Fix goroutine leak in operation_executor_test.go"
+  became "goroutine lifetime is a design property of the plugin manager". The
+  instruction not to stop at the subject line already existed, and was ignored.
+  A file list in the input cannot be ignored. `[TEST-ONLY]` marks a commit
+  whose every file is a test file.
+
+* **New: `okf-cochange.py` — logical coupling from history.** Directories that
+  keep changing in the same commit are coupled even when neither imports the
+  other, because the mechanism is a wire contract, a shared schema or a
+  deployment ordering rule. Reports support, confidence and lift, skipping bulk
+  commits so a mass rename does not couple everything to everything.
+
+* **Untracked code is no longer documented as yours.** A run on a real
+  repository produced eight concepts describing 952 files of imported
+  third-party code sitting in the working tree. The inventory now reports
+  `untracked_dirs`, the generate workflow treats them as off-limits, and
+  `verify` rejects any concept whose `source_files` git does not track.
+
+* **Cross-links are relative now, and W9 catches the old form.** OKF resolves a
+  leading `/` against the *bundle* root; GitHub resolves it against the
+  *repository* root. Every cross-link in a published catalog 404'd in a browser
+  while validating perfectly. OKF §6.1 permits relative paths, which resolve
+  identically for the validator, for an agent, and for a reader clicking
+  through.
+
+* **Bundles get a `README.md` front door.** Forges render `README.md` when a
+  directory is opened and ignore `index.md`, so a bundle showed a bare file
+  list to the humans it was written for. `README.md` is now ignored rather than
+  checked as a concept, and the generate workflow specifies writing one. That
+  is also where `/speckit.okf.clarify` is now put in front of readers, since
+  answering the open questions is the only part of a catalog a machine cannot
+  produce.
+
 ## [0.5.0](https://github.com/alexcpn/speckit_okf/releases/tag/v0.5.0) — 2026-09-03
 * **Fixed: `okf-inventory.sh` aborted with exit 141 on large repositories.**
   Twelve pipelines ended in `head -N`, which closes the pipe and sends

@@ -15,6 +15,15 @@ Scope hints: if the user named a bundle path, validate that one.
    python3 $SKILL_DIR/scripts/python/validate_okf.py "$BUNDLE_DIR" --config "$CONFIG"   # drop --config if none was found
    ```
 
+   `validate` answers *is this bundle well-formed?*. It says nothing about
+   whether it is **true**. Unless the user asked only for a conformance
+   check, run the claim verifier as well and report both — its FINDINGs are
+   claims the code does not support:
+
+   ```bash
+   python3 $SKILL_DIR/scripts/python/verify_okf.py "$BUNDLE_DIR"
+   ```
+
 3. Interpret the output using OKF §9 semantics:
    - **ERRORs** make the bundle non-conformant (unparseable frontmatter,
      missing/empty `type`, malformed `index.md`/`log.md`, or a `log.md`

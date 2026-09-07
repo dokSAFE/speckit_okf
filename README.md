@@ -25,7 +25,8 @@ Both forms drive the same four workflows.
 | `generate` — `/speckit.okf.generate` | Bootstrap a full bundle from the repo: inventory scan, git-history mining (churn + rationale), concept plan, concept documents, `index.md` files, `log.md`, validation. |
 | `update` — `/speckit.okf.update` | Incremental refresh: diffs git history since the last logged commit, surgically updates only stale concepts, deprecates orphans, creates concepts for new code, preserves human curation. |
 | `clarify` — `/speckit.okf.clarify` | Resolves the `open_questions` that generate/update parked (instead of guessing) by asking the user, then folds the answers back into concepts as cited, curation-protected knowledge. |
-| `validate` — `/speckit.okf.validate` | Runs the OKF §9 conformance checker and a quality spot-check; reports ERRORs/WARNINGs with fixes. |
+| `validate` — `/speckit.okf.validate` | Runs the OKF §9 conformance checker and a quality spot-check; reports ERRORs/WARNINGs with fixes. Checks **structure**. |
+| `verify` — `/speckit.okf.verify` | Checks **claims**. Every cited commit must exist and belong to the concept citing it, every symbol in `# Interfaces` must exist in non-test code, every `source_files` path must be tracked by git, and no invariant may be asserted with no evidence. An agent auditing its own prose is the unreliable case; git is not. |
 
 ## Install
 
@@ -80,6 +81,9 @@ With the **Spec Kit extension**, run the commands explicitly:
 
 # 4. Validate conformance before committing
 /speckit.okf.validate
+
+# 5. Check that the bundle's claims survive the repository
+/speckit.okf.verify
 ```
 
 Output lands in `knowledge/` (configurable) as a set of cross-linked markdown concept files ready to commit alongside your code.
@@ -92,7 +96,7 @@ Copy `okf-config.template.yml` to `.okf-config.yml` in your repo root (the skill
 
 1. `scripts/bash/okf-inventory.sh` deterministically scans the repo (entry points, dependency manifests, API definitions, migrations/models, CI/CD, docs, ADRs) into JSON — including **git-history signals** (`churn` = per-file commit counts for significance, `recent_commits`) — so the agent plans from facts, not guesses.
 2. `scripts/bash/okf-history.sh <path>` gives the agent bounded, per-concept git history — creation commit, recent subjects, and revert/hotfix/risk-flagged commits — so concepts capture the **"why"** (invariants, gotchas) with commit citations, not just the "what".
-3. The workflow prompt instructs the agent to draft a concept plan, then write OKF-conformant documents: required `type` frontmatter, recommended `title`/`description`/`resource`/`tags`/`timestamp`, producer extension fields `source_files` (maps each concept back to code — what makes incremental updates possible) and `open_questions` (parks uncertainty for `/speckit.okf.clarify` instead of guessing), bundle-relative cross-links, `index.md` progressive-disclosure files, and an ISO-dated `log.md`.
+3. The workflow prompt instructs the agent to draft a concept plan, then write OKF-conformant documents: required `type` frontmatter, recommended `title`/`description`/`resource`/`tags`/`timestamp`, producer extension fields `source_files` (maps each concept back to code — what makes incremental updates possible) and `open_questions` (parks uncertainty for `/speckit.okf.clarify` instead of guessing), relative cross-links that resolve on GitHub, `index.md` progressive-disclosure files, a `README.md` front door, and an ISO-dated `log.md`.
 4. `scripts/python/validate_okf.py` enforces OKF §9: parseable frontmatter everywhere, non-empty `type`, reserved-file structure — and warns on broken links, missing indexes, empty bodies, secret-looking strings, dangling `source_files`, duplicate concepts, and unresolved `open_questions`.
 
 ## Generated bundle shape (example)
@@ -114,7 +118,10 @@ knowledge/
 ## Notes
 
 - The updater never deletes concepts or human-written prose; removed code yields `status: deprecated`, not deletion.
-- The agent parks what it can't verify in `open_questions` rather than guessing; `/speckit.okf.clarify` turns those into human-confirmed, curation-protected facts (marked with `<!-- clarified -->` sentinels the updater won't overwrite).
+- The agent parks what it can't verify in `open_questions` rather than guessing; `/speckit.okf.clarify` turns those into human-confirmed, curation-protected facts (marked with `<!-- clarified -->` sentinels the updater won't overwrite). **This is the highest-value step, and the only one a machine cannot do for you.**
+- History mining marks commits that changed **only test files** as `[TEST-ONLY]` and lists the files each flagged commit touched. A goroutine leak fixed in `foo_test.go` is test hygiene, not a production invariant, and the workflow now says so.
+- `okf-cochange.py` mines **logical coupling**: directories that keep changing in the same commit are related even when neither imports the other, because the mechanism is a wire contract, a shared schema or a deployment ordering rule. That relationship exists in no import graph and no snapshot of the working tree.
+- The inventory enumerates with `git ls-files`, so `.gitignore` is honoured for free, and it reports untracked subtrees on disk so vendored or imported code is named and skipped rather than written up as if it were yours.
 - Secrets found in configs — or surfaced by git-history mining — are described by shape, never by value; the validator flags anything that slips through.
 - OKF's permissive consumption model (unknown types OK, broken links OK) is relied on deliberately — generation is safe to run early and often.
 - The scripts are checked on every push via CodeQL and ShellCheck; see [SECURITY.md](SECURITY.md) to report a vulnerability.

@@ -11,7 +11,7 @@ description: >-
   "knowledge catalog", "document this repo", "codebase knowledge base".
 license: MIT
 metadata:
-  version: "0.5.0"
+  version: "0.6.0"
   author: "Alex Punnen <alexcpn@gmail.com>"
   homepage: "https://github.com/alexcpn/speckit_okf"
 ---
@@ -92,9 +92,11 @@ Full flags: run any of them with `--help`.
 
 | Script | Purpose |
 | --- | --- |
-| `scripts/bash/okf-inventory.sh [out.json] [--config <cfg>]` | Repo-wide inventory as JSON: file tree, languages, entry points, dependency manifests, API definitions, schemas/migrations, CI/CD, docs, ADR/RFC docs, plus `git.history` (`churn` per-file commit counts = significance signal, `recent_commits`). Prints `Inventory written to <path>` — read the JSON from *that* path, it is per-run and not fixed. Each category carries a `truncated` flag. |
-| `scripts/bash/okf-history.sh <path>… [--limit N] [--json] [--patch]` | Bounded per-concept git history: creation commit, commit count, recent subjects, and revert/hotfix/risk-flagged commits (deadlock, race, regression, security). This is where the **"why"** — invariants and gotchas — comes from. Diff-free by default; `--patch` opts into diffs and can surface secrets that were later removed. |
-| `scripts/python/validate_okf.py <bundle_dir> [--config <cfg>] [--json]` | OKF §9 conformance checker. ERRORs: unparseable frontmatter, missing/empty `type`, malformed `index.md`/`log.md`, `log.md` block missing its `Commit:` line. WARNINGs: W1 missing title/description, W2 broken links, W3 missing index, W4 empty body, W5 possible secret, W6 dangling `source_files`, W7 duplicate concept, W8 unresolved `open_questions`. |
+| `scripts/bash/okf-inventory.sh [out.json] [--config <cfg>]` | Repo-wide inventory as JSON: file tree, languages, entry points, dependency manifests, API definitions, schemas/migrations, CI/CD, docs, ADR/RFC docs, plus `git.history` (`churn` per-file commit counts = significance signal, `recent_commits`) and `git.untracked_dirs` (subtrees on disk that git does not track — vendored or imported code, **never** give these concepts). Enumerates with `git ls-files`, so `.gitignore` is honoured for free. Prints `Inventory written to <path>` — read the JSON from *that* path, it is per-run and not fixed. Each category carries a `truncated` flag. |
+| `scripts/bash/okf-history.sh <path>… [--limit N] [--json] [--patch]` | Bounded per-concept git history: creation commit, commit count, recent subjects, and revert/hotfix/risk-flagged commits (deadlock, race, regression, security), each with the files it touched. Commits that changed only test files are marked `[TEST-ONLY]` and must never be cited as gotchas. This is where the **"why"** — invariants and gotchas — comes from. Diff-free by default; `--patch` opts into diffs and can surface secrets that were later removed. |
+| `scripts/python/okf-cochange.py [<path>…] [--depth N] [--since D] [--json]` | Directories that change together in history, with `support`, `confidence` and `lift`. **Logical coupling**: two units that always move in the same commit are related even when neither imports the other, because the mechanism is a wire contract, a shared schema or a deployment rule. No import graph or call graph can see it. |
+| `scripts/python/verify_okf.py <bundle_dir> [--json] [--strict]` | Checks the bundle's **claims** against the repository, where `validate_okf.py` only checks its **structure**. Every cited commit must exist, touch this concept's `source_files`, and not be test-only; every symbol in `# Interfaces` must exist in non-test code; every `# Gotchas` section must cite something; every `source_files` path must be **tracked by git** (V8). Run it after generate and after update, and fix every FINDING. |
+| `scripts/python/validate_okf.py <bundle_dir> [--config <cfg>] [--json]` | OKF §9 conformance checker. ERRORs: unparseable frontmatter, missing/empty `type`, malformed `index.md`/`log.md`, `log.md` block missing its `Commit:` line. WARNINGs: W1 missing title/description, W2 broken links, W3 missing index, W4 empty body, W5 possible secret, W6 dangling `source_files`, W7 duplicate concept, W8 unresolved `open_questions`, W9 bundle-relative links that will not resolve on GitHub. `README.md` is ignored, not treated as a concept. |
 
 **Working without git.** Everything except history mining still works. The
 inventory reports `git.is_git_repo: false` and empty history; `okf-history.sh`

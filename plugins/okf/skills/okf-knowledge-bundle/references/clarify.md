@@ -36,7 +36,9 @@ question in the bundle.
      `clarify.max_questions` per run (config; default 20). If more remain,
      resolve the top batch and tell the user to re-run for the rest.
    - Before asking, make one more attempt to answer cheaply from history:
-     `$SKILL_DIR/scripts/bash/okf-history.sh <source-files>`.
+     `$SKILL_DIR/scripts/bash/okf-history.sh <source-files>`. Ignore
+     commits marked `[TEST-ONLY]` — they cannot settle a question about
+     production behaviour.
      If a commit clearly answers it, resolve it from that (cite the sha) and
      don't spend a user question on it.
 

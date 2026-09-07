@@ -90,6 +90,12 @@ under version control.
      unless the underlying code genuinely contradicts it — in which case
      flag the conflict as a new `open_questions` entry rather than silently
      rewriting it.
+   - Skip commits marked `[TEST-ONLY]`: they changed only test files and
+     carry no production invariant. Check each flagged commit's file list
+     before attributing it to this concept. Re-run
+     `.specify/extensions/okf/scripts/python/okf-cochange.py <path>` too — a coupling that has appeared
+     or disappeared since the last update is a real change to the concept's
+     Dependencies section.
    - Use `.specify/extensions/okf/scripts/bash/okf-history.sh <path>` on the
      changed files to ground *why* they changed (revert/hotfix signals) so
      refreshed sections keep the "why", not just the "what".
@@ -120,6 +126,7 @@ under version control.
 
    ```bash
    python3 .specify/extensions/okf/scripts/python/validate_okf.py <bundle_dir> --config .specify/extensions/okf/okf-config.yml
+   python3 .specify/extensions/okf/scripts/python/verify_okf.py   <bundle_dir>
    ```
 
    fix ERRORs, then summarize: N updated, N created, N deprecated, N new
