@@ -21,6 +21,14 @@ $ARGUMENTS
    python3 .specify/extensions/okf/scripts/python/validate_okf.py <bundle_dir> --config .specify/extensions/okf/okf-config.yml
    ```
 
+   `validate` answers *is this bundle well-formed?*. It says nothing about
+   whether it is **true**. Unless the user asked only for a conformance
+   check, run the claim verifier as well and report both:
+
+   ```bash
+   python3 .specify/extensions/okf/scripts/python/verify_okf.py <bundle_dir>
+   ```
+
 3. Interpret the output using OKF §9 semantics:
    - **ERRORs** make the bundle non-conformant (unparseable frontmatter,
      missing/empty `type`, malformed `index.md`/`log.md`, or a `log.md`

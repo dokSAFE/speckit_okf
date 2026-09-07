@@ -19,7 +19,9 @@ SKILL="$ROOT/plugins/okf/skills/okf-knowledge-bundle"
 ASSETS=(
   "scripts/bash/okf-inventory.sh"
   "scripts/bash/okf-history.sh"
+  "scripts/python/okf-cochange.py"
   "scripts/python/validate_okf.py"
+  "scripts/python/verify_okf.py"
 )
 
 CHECK=0

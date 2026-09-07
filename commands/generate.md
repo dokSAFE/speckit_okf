@@ -55,6 +55,19 @@ $ARGUMENTS
      generated.
    - `recent_commits` — recent non-merge subjects, a cheap first read on
      what the project has been doing lately.
+   - `untracked_dirs` — directories present on disk that git does not
+     track and `.gitignore` does not cover: a vendored dependency, an
+     imported third-party project, generated output. **Treat these as
+     off-limits.** Everything else in the inventory comes from
+     `git ls-files`, so these paths are deliberately absent from it. Never
+     write a concept whose `source_files` point into one, and do not go
+     exploring them with your own file tools: code the repository does not
+     track has no history behind it, so every "why" you write about it is
+     unsupported, and the verifier will reject the concept (V8). Name them
+     in your report instead — "skipped `vendor/foo/` (952 untracked
+     files)" — and ask whether any should be documented separately. If so,
+     the fix is to track the subtree or catalog it as its own repository,
+     not to fold it into this bundle.
    - Use these to prioritize; pull the deeper per-concept "why" in Phase 2
      with `okf-history.sh` (below). If `git.is_git_repo` is `false`,
      `git.history` is empty — skip history-based reasoning rather than
@@ -96,6 +109,24 @@ Selection rules by granularity (default: medium):
 - Seed a `Design Decision` concept (in `architecture/`) for each ADR/RFC
   found in `adr_docs`, and mirror truly external decision records into
   `references/`.
+
+Every concept must describe **git-tracked** code. If a path is not in
+`git ls-files`, it does not get a concept.
+
+**Use co-change to find what churn and imports both miss.** Run:
+
+```bash
+python3 .specify/extensions/okf/scripts/python/okf-cochange.py --depth 2          # repo-wide: most coupled units
+python3 .specify/extensions/okf/scripts/python/okf-cochange.py <dir> --depth 3    # what moves when this moves
+```
+
+Two units that keep appearing in the same commit are coupled even when
+neither imports the other — a shared schema, a wire contract, a deployment
+ordering rule. Read the `lift` column, not just `confidence`: a directory
+that changes constantly co-occurs with everything at a lift near 1 and means
+nothing, while a lift of 5+ on decent support is a real relationship. A
+high-lift partner with no concept of its own is usually a missing concept;
+one that no import explains is worth writing down in Phase 2.
 
 **Use churn to break significance ties.** When deciding whether a
 borderline module/file warrants its own concept, consult `git.history.churn`
@@ -231,9 +262,21 @@ start.
 
 ### Cross-linking
 
-- Link with bundle-relative paths beginning with `/` (OKF §5.1), e.g.
-  `[orders model](/data/orders.md)`. Express the relationship in the
-  surrounding prose. Links to concepts you have not written yet are
+**Use relative paths, not bundle-relative ones.** From
+`architecture/overview.md`, link a service as
+`[Payment](../services/payment.md)`.
+
+OKF §6.1 permits both and recommends the bundle-relative form
+(`](/services/payment.md)`), because a leading `/` survives a document
+moving within its subdirectory. Decline that here: a leading `/` resolves
+against the **bundle** root for OKF and the **repository** root for GitHub
+and every other forge. Whenever the bundle sits in a subdirectory — the
+normal case — every such link 404s in a browser while validating perfectly.
+The validator reports it as **W9**. If the bundle *is* the repository root
+the two coincide and either form works.
+
+- Express the relationship in the
+  surrounding prose, not just in the link. Links to concepts you have not written yet are
   allowed — broken links legitimately represent not-yet-written
   knowledge (§5.3).
 - Aim for every code concept to link to at least one other concept. An
@@ -253,6 +296,13 @@ It returns the creation commit, commit count, recent subjects, and — most
 valuably — **revert/hotfix/risk-flagged commits** (reverts, hotfixes,
 regressions, races, deadlocks, leaks, corruption, security fixes). Those
 are your gotchas and invariants.
+
+Each flagged commit is listed with the files it touched, and a commit that
+changed **only test files** is marked `[TEST-ONLY]`. **Never cite one as a
+gotcha.** "Fix goroutine leak in foo_test.go" is test hygiene, not evidence
+that production code leaks. Use the file list the same way for partial
+matches: a race fix whose only production file sits in another package
+belongs to that package's concept, not this one.
 
 **Do not stop at the subject line.** A subject tells you something went
 wrong; it rarely tells you the rule. For the two or three highest-signal
@@ -330,6 +380,27 @@ unambiguous.
   * [data/](data/) - Database tables and event schemas.
   ```
 
+### `README.md` — the bundle's front door
+
+Write one at the bundle root. OKF navigates by `index.md`, but GitHub, GitLab
+and most forges render `README.md` when someone opens a directory and ignore
+`index.md` entirely, so without it a reader who clicks into the bundle sees a
+bare file list. The validator ignores `README.md` rather than checking it as a
+concept, so it needs no frontmatter.
+
+Keep it short and aimed at a human arriving cold:
+
+- one line on what the directory is and that it is generated;
+- a link straight to `architecture/overview.md`, and one to `index.md`;
+- concept count, generator version, and the commit it was built from;
+- how to check it, with `verify_okf.py`;
+- **how to correct it.** Say that unresolved uncertainty is parked in
+  `open_questions`, that `/speckit.okf.clarify` walks a human through those
+  questions, and that an answer given there is sentinel-marked and survives
+  every later regeneration. This is the highest-value thing a reader can do
+  with the bundle and the only part a machine cannot produce — say so
+  plainly rather than burying it.
+
 ### Log file (OKF §7)
 
 Create `log.md` at the bundle root:
@@ -364,7 +435,32 @@ control.
 2. Fix any ERRORs (unparseable frontmatter, missing/empty `type`,
    malformed reserved files). WARNINGs (broken links, missing optional
    fields, unresolved `open_questions` — W8) are acceptable but list them.
-3. Report to the user: concept count by type, bundle tree, validation
+   **W9** means you used bundle-relative links: rewrite them as relative.
+3. **Verify the claims, not just the structure:**
+
+   ```bash
+   python3 .specify/extensions/okf/scripts/python/verify_okf.py <bundle_dir>
+   ```
+
+   Every FINDING is a statement the repository does not support. Fix it
+   rather than explaining it away:
+
+   - **V1/V2** — you cited a commit that does not exist, or one belonging to
+     another concept. Re-run `okf-history.sh` on this concept's own
+     `source_files` and cite from that.
+   - **V3** — you cited a `[TEST-ONLY]` commit as a gotcha. Delete the
+     claim.
+   - **V4** — a symbol in `# Interfaces` does not exist. You wrote it from
+     memory; grep for the real one.
+   - **V5** — a `# Gotchas` section asserts invariants and cites nothing.
+     Cite the commit or delete the claim.
+   - **V8** — the concept describes files git does not track. Delete it and
+     tell the user which subtree it came from.
+
+   NOTEs need judgement rather than obedience: **V6** is often a real
+   runtime coupling, and **V7** means you described Go packages as an import
+   cycle, which the compiler forbids.
+4. Report to the user: concept count by type, bundle tree, validation
    result, **how many concepts carry `open_questions`**, and suggested next
    steps:
    - review `architecture/overview.md` first;
@@ -380,8 +476,10 @@ control.
   concepts (§3.1).
 - Concept IDs are file paths minus `.md`; use lowercase, hyphenated
   filenames.
-- Every path in `source_files` must actually exist in the repo (the
-  validator flags dangling entries as W6). Give each concept a unique
+- Every path in `source_files` must be **tracked by git**, not merely
+  present on disk: `git ls-files -- <path>` must return something. The
+  validator flags paths that do not exist (W6); `verify_okf.py` flags paths
+  git does not track (V8). Give each concept a unique
   `type` + `title` combination to avoid duplicate-concept warnings (W7).
 - Never fabricate facts about the code. If behavior is unclear from the
   source (and git history doesn't settle it), either mark it inline
