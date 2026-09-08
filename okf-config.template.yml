@@ -14,17 +14,19 @@ okf:
   # a --output-dir style option.
   bundle_dir: "openwiki"
 
-  # Coding-agent host id, used only to pick which MCP-registration check
-  # okf-preflight.sh runs and to phrase its fix-it message. It is NOT
-  # restricted to OpenWiki's `integrations install` registry (codex, claude,
-  # opencode, cursor) — `openwiki mcp --host <id>` itself accepts any
-  # lowercase id, it's just provenance metadata. This deployment runs under
-  # Junie (JetBrains), which has no `openwiki integrations install` support,
-  # so the MCP server was registered by hand in
-  # ~/.junie/mcp/mcp.json — see README.md "Setup for Junie".
-  # Set to "claude" instead if you're running this extension under Claude
-  # Code, where `openwiki integrations install claude` does the MCP
-  # registration for you.
+  # Coding-agent host id, used only to pick which MCP-config FILE
+  # okf-preflight.sh checks for OpenWiki's registration (.mcp.json /
+  # ~/.claude.json for "claude", .junie/mcp/mcp.json / ~/.junie/mcp/mcp.json
+  # for "junie"). This is unrelated to the `--host` value inside that MCP
+  # server's own `args` (the string `openwiki mcp --host <id>` stamps into
+  # generated-page provenance) — this deployment runs under Junie
+  # (JetBrains), which has no `openwiki integrations install` support, so
+  # the MCP server was registered by hand in ~/.junie/mcp/mcp.json with
+  # args ["mcp", "--host", "claude"] (not "junie" — see README.md "Setup
+  # for Junie" for why). Set this field to "claude" instead of "junie" if
+  # you're running this extension under Claude Code, where
+  # `openwiki integrations install claude` does the MCP registration for
+  # you.
   host: "junie"
 
   # okf.clarify behavior (Junie: /speckit-okf-clarify; Claude: /speckit.okf.clarify).

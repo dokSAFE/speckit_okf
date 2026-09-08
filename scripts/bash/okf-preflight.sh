@@ -64,6 +64,7 @@ fi
 #    must be registered by hand. Either project or user scope is sufficient.
 INTEGRATION_FOUND=0
 HAS_AUTO_INSTALLER=1
+OPENWIKI_HOST_ARG=""
 
 case "$HOST" in
   claude)
@@ -85,6 +86,17 @@ case "$HOST" in
     # registry, so there's no auto-installer and no separately installed
     # skill file to check for — only the manually-registered MCP server.
     # Docs: https://junie.jetbrains.com/docs/junie-cli-mcp-configuration.html
+    #
+    # The `--host` value baked into that server's `args` is unrelated to
+    # $HOST above (which only picks *this script's* file-detection branch,
+    # i.e. "we're running under Junie, so check .junie/mcp/mcp.json"). It's
+    # free-form provenance metadata `openwiki mcp` stamps into generated
+    # pages — OpenWiki has no real Junie awareness, so this deployment uses
+    # "claude" there deliberately (a recognized, meaningful value) rather
+    # than "junie" (which OpenWiki would accept but treat as just an
+    # arbitrary unrecognized label). Only the fix-it suggestion below needs
+    # this; detection itself just greps for `"openwiki"`.
+    OPENWIKI_HOST_ARG="claude"
     HAS_AUTO_INSTALLER=0
     PROJECT_MCP=".junie/mcp/mcp.json"
     USER_MCP="${HOME}/.junie/mcp/mcp.json"
@@ -107,7 +119,7 @@ if [[ "$INTEGRATION_FOUND" -eq 0 ]]; then
   if [[ "$HAS_AUTO_INSTALLER" -eq 1 ]]; then
     NOTES+=("OpenWiki is not registered as an MCP server for this host yet. Install it with:  openwiki integrations install ${HOST}   (then restart this coding agent so it picks up the new MCP server)")
   else
-    NOTES+=("OpenWiki is not registered as an MCP server for '${HOST}' yet, and OpenWiki has no auto-installer for this host. Add it by hand to ${USER_MCP} (or ${PROJECT_MCP} for a project-scoped install):  {\"mcpServers\": {\"openwiki\": {\"command\": \"openwiki\", \"args\": [\"mcp\", \"--host\", \"${HOST}\"]}}}   (merge into the existing mcpServers object if the file already has one; then restart this coding agent)")
+    NOTES+=("OpenWiki is not registered as an MCP server for '${HOST}' yet, and OpenWiki has no auto-installer for this host. Add it by hand to ${USER_MCP} (or ${PROJECT_MCP} for a project-scoped install):  {\"mcpServers\": {\"openwiki\": {\"command\": \"openwiki\", \"args\": [\"mcp\", \"--host\", \"${OPENWIKI_HOST_ARG:-$HOST}\"]}}}   (merge into the existing mcpServers object if the file already has one; then restart this coding agent)")
   fi
 fi
 

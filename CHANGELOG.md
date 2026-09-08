@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.1.1 — fix the Junie MCP `--host` example
+
+The 1.1.0 README/config examples suggested registering OpenWiki's MCP server
+under Junie with `args: ["mcp", "--host", "junie"]`. That's not what's
+actually deployed: since OpenWiki has no real Junie awareness to key off of,
+this deployment's `~/.junie/mcp/mcp.json` uses `--host claude` instead (a
+recognized label; purely cosmetic provenance metadata either way — it does
+not affect functionality or gate any behavior). Corrected in README,
+`okf-config.template.yml`'s comment, and `okf-preflight.sh`'s fix-it message
+(which now suggests `claude` when it has to tell a Junie user what to add).
+`okf.host` in `okf-config.yml` is unaffected and stays `"junie"` — it drives
+which MCP-config *file* okf-preflight.sh checks
+(`.junie/mcp/mcp.json`/`~/.junie/mcp/mcp.json`), which is a separate concern
+from the `--host` value inside that file.
+
 ## 1.1.0 — Junie (JetBrains) support
 
 Added support for running this extension under Junie, not just Claude Code:
