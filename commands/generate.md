@@ -44,7 +44,7 @@ If `openwiki/` already contains pages, note that `openwiki_begin` with
 `mode: "init"` **replaces** the existing generated wiki and Claims (it
 preserves `openwiki/INSTRUCTIONS.md`). If the user did not explicitly ask for
 a full rebuild in $ARGUMENTS and a bundle already exists, prefer
-`/speckit.okf.update` instead and tell the user why; only proceed with a full
+__SPECKIT_COMMAND_OKF_UPDATE__ instead and tell the user why; only proceed with a full
 `init` here if they confirm or explicitly asked for a rebuild.
 
 ## Phase 1 — Begin the run
@@ -138,6 +138,6 @@ Repeat until `openwiki_next_page` reports completion:
 
 3. Report to the user: page count, bundle location (`openwiki/`), and
    suggested next steps — review `openwiki/quickstart.md` first; run
-   `/speckit.okf.clarify` if you want to inject human context OpenWiki
-   couldn't derive from source; run `/speckit.okf.update` after future code
+   __SPECKIT_COMMAND_OKF_CLARIFY__ if you want to inject human context OpenWiki
+   couldn't derive from source; run __SPECKIT_COMMAND_OKF_UPDATE__ after future code
    changes; run `openwiki visualize` to explore the bundle interactively.

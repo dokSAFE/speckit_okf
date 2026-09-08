@@ -5,7 +5,7 @@ schema_version: "1.0"
 extension:
   id: "okf"
   name: "OKF Knowledge Bundle Generator (OpenWiki engine)"
-  version: "1.0.0"
+  version: "1.1.0"
   description: >
     Generates and maintains an Open Knowledge Format (OKF v0.2) knowledge
     bundle from a source-code repository. This is a fork of alexcpn/speckit_okf
@@ -13,13 +13,14 @@ extension:
     hand-rolled bash inventory scripts and a single-shot agent prompt) that
     replaces that generation engine with OpenWiki
     (https://github.com/langchain-ai/openwiki), run in-session through its
-    Claude Code MCP integration. OpenWiki owns run state, the page queue,
-    Claims (fact-to-source-evidence) tracking, index synchronization, Mermaid
-    validation, and OKF frontmatter/provenance conformance; this extension's
-    commands drive that lifecycle and adapt /speckit.okf.clarify and
-    /speckit.okf.validate to OpenWiki's model. No separate LLM API key is
-    required: OpenWiki's Claude Code integration uses the calling agent's own
-    model session.
+    coding-agent MCP integration (Claude Code out of the box; Junie/JetBrains
+    works too via a manually-registered MCP server, see okf-preflight.sh).
+    OpenWiki owns run state, the page queue, Claims (fact-to-source-evidence)
+    tracking, index synchronization, Mermaid validation, and OKF
+    frontmatter/provenance conformance; this extension's commands drive that
+    lifecycle and adapt okf.clarify and okf.validate to OpenWiki's model. No
+    separate LLM API key is required: OpenWiki's host integration uses the
+    calling agent's own model session.
   author: "Didier (fork); original by Alex Punnen <alexcpn@gmail.com>"
   repository: ""
   homepage: "https://github.com/langchain-ai/openwiki"

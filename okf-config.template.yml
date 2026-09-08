@@ -14,24 +14,30 @@ okf:
   # a --output-dir style option.
   bundle_dir: "openwiki"
 
-  # Coding-agent host id, as used by `openwiki integrations install <host>`
-  # and `openwiki mcp --host <host>`. Spec Kit commands in this extension are
-  # written for the "claude" host (Claude Code / Cowork). If you run this
-  # extension under a different Spec Kit agent integration, install OpenWiki
-  # for that host instead (codex | claude | opencode | cursor) and change
-  # this value to match — it's used only for the preflight check message.
-  host: "claude"
+  # Coding-agent host id, used only to pick which MCP-registration check
+  # okf-preflight.sh runs and to phrase its fix-it message. It is NOT
+  # restricted to OpenWiki's `integrations install` registry (codex, claude,
+  # opencode, cursor) — `openwiki mcp --host <id>` itself accepts any
+  # lowercase id, it's just provenance metadata. This deployment runs under
+  # Junie (JetBrains), which has no `openwiki integrations install` support,
+  # so the MCP server was registered by hand in
+  # ~/.junie/mcp/mcp.json — see README.md "Setup for Junie".
+  # Set to "claude" instead if you're running this extension under Claude
+  # Code, where `openwiki integrations install claude` does the MCP
+  # registration for you.
+  host: "junie"
 
-  # /speckit.okf.clarify behavior. OpenWiki has no built-in "open questions"
-  # concept (it prefers to write only what it can verify from source and
-  # cite as a Claim). This extension's clarify command instead scans the
-  # bundle for uncertainty language, asks you about it, and folds confirmed
-  # answers into openwiki/INSTRUCTIONS.md — the one file OpenWiki reads but
-  # never overwrites — so the next /speckit.okf.update run incorporates them.
+  # okf.clarify behavior (Junie: /speckit-okf-clarify; Claude: /speckit.okf.clarify).
+  # OpenWiki has no built-in "open questions" concept (it prefers to write
+  # only what it can verify from source and cite as a Claim). This
+  # extension's clarify command instead scans the bundle for uncertainty
+  # language, asks you about it, and folds confirmed answers into
+  # openwiki/INSTRUCTIONS.md — the one file OpenWiki reads but never
+  # overwrites — so the next update run incorporates them.
   clarify:
     max_questions: 20
-    # Heuristic phrases /speckit.okf.clarify greps page bodies for when
-    # looking for parked uncertainty worth asking you about.
+    # Heuristic phrases okf.clarify greps page bodies for when looking for
+    # parked uncertainty worth asking you about.
     uncertainty_markers:
       - "unclear"
       - "not clear from"

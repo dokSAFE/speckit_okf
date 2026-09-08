@@ -7,7 +7,7 @@ scripts:
 # /speckit.okf.clarify — Resolve parked uncertainty
 
 **This command works differently from the original speckit_okf
-`/speckit.okf.clarify`.** The original relied on an `open_questions`
+__SPECKIT_COMMAND_OKF_CLARIFY__.** The original relied on an `open_questions`
 frontmatter field the agent wrote by hand. OpenWiki has no equivalent
 concept — it deliberately prefers to write only what it can verify from
 source and cite as a Claim, rather than parking a question in frontmatter.
@@ -15,7 +15,7 @@ So instead of reading a structured field, this command **greps page bodies
 for uncertainty language**, asks you about what it finds, and writes your
 confirmed answers into `openwiki/INSTRUCTIONS.md` — the one file in the
 bundle OpenWiki reads on every run but never overwrites — so the next
-`/speckit.okf.update` incorporates them as grounding context.
+__SPECKIT_COMMAND_OKF_UPDATE__ incorporates them as grounding context.
 
 User input (optional scope hints — e.g. a subdirectory of the bundle to
 focus on):
@@ -31,7 +31,7 @@ Run:
 ```
 
 If it reports `PREFLIGHT: BLOCKED`, stop and show the user its output. If
-`openwiki/` doesn't exist yet, tell the user to run `/speckit.okf.generate`
+`openwiki/` doesn't exist yet, tell the user to run __SPECKIT_COMMAND_OKF_GENERATE__
 first and stop.
 
 ## Phase 1 — Find parked uncertainty
@@ -89,7 +89,7 @@ For each answered question:
    OpenWiki to find and ground it next run. Do not editorialize or add
    anything the user did not actually confirm.
 3. Do **not** edit the OKF pages themselves in this command — leave that to
-   `/speckit.okf.update`, which will read the refreshed
+   __SPECKIT_COMMAND_OKF_UPDATE__, which will read the refreshed
    `openwiki/INSTRUCTIONS.md` and can then write the confirmed fact into the
    page as a properly evidenced Claim (citing the source that best supports
    it, or citing the instructions file itself if the fact is genuinely
@@ -99,4 +99,4 @@ For each answered question:
 
 Tell the user how many questions were asked/answered/deferred, that the
 answers are recorded in `openwiki/INSTRUCTIONS.md`, and that running
-`/speckit.okf.update` next will fold them into the bundle.
+__SPECKIT_COMMAND_OKF_UPDATE__ next will fold them into the bundle.

@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.1.0 — Junie (JetBrains) support
+
+Added support for running this extension under Junie, not just Claude Code:
+
+- `scripts/bash/okf-preflight.sh` now branches on `okf.host` (`claude` |
+  `junie`) and checks the right MCP-config file for each: `.mcp.json` /
+  `~/.claude.json` for Claude Code, `.junie/mcp/mcp.json` /
+  `~/.junie/mcp/mcp.json` for Junie. Junie has no entry in OpenWiki's
+  `integrations install` registry, so its fix-it message gives the exact
+  JSON to add by hand instead of an install command.
+- All four command files now reference each other via Spec Kit's
+  `__SPECKIT_COMMAND_<NAME>__` placeholders instead of hardcoded
+  `/speckit.okf.*` text, so the invocation Spec Kit tells the user to type
+  is correct for either host (`/speckit.okf.update` under Claude's dotted
+  convention, `/speckit-okf-update` under Junie's hyphenated one — Junie
+  doesn't allow dots in slash-command names).
+- `okf-config.template.yml`'s `host` default changed to `"junie"` for this
+  deployment (was `"claude"`); switch it back if you run this under Claude
+  Code instead.
+- README gained a Junie-specific setup section (manual MCP registration,
+  since there's no `openwiki integrations install junie`).
+
+No change to the generation/update/clarify/validate logic itself — this is
+purely making the same behavior reachable from a second host.
+
 ## 1.0.0 — fork from alexcpn/speckit_okf 0.5.0
 
 Replaced the generation engine: `/speckit.okf.generate` and

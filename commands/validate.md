@@ -35,7 +35,7 @@ generated).
 
 If `openwiki/` (or the bundle dir from
 `.specify/extensions/okf/okf-config.yml`) doesn't exist, tell the user to run
-`/speckit.okf.generate` first and stop.
+__SPECKIT_COMMAND_OKF_GENERATE__ first and stop.
 
 Run:
 
@@ -55,14 +55,14 @@ exact YAML-schema rules).
 **What this script deliberately does not do:** determine whether a Claim's
 cited evidence is stale (that requires OpenWiki's internal evidence-hash
 comparison, which is not something to reimplement here) — trust
-`openwiki_inspect_page_claims` / a fresh `/speckit.okf.update` run for that.
+`openwiki_inspect_page_claims` / a fresh __SPECKIT_COMMAND_OKF_UPDATE__ run for that.
 
 ## Phase 2 — Report
 
 Summarize: page count, error count (frontmatter unparseable / missing `type`
 / malformed reserved files), warning count and the categories they fall into,
 and overall CONFORMANT / NON-CONFORMANT result. If there are errors, list
-them and suggest fixes (usually: re-run `/speckit.okf.update` and let
+them and suggest fixes (usually: re-run __SPECKIT_COMMAND_OKF_UPDATE__ and let
 OpenWiki repair the page, since `migrateWikiToOkf` normalizes non-conformant
 frontmatter automatically on its next run). If everything is clean, say so
 plainly.
