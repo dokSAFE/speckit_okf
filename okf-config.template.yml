@@ -17,13 +17,13 @@ okf:
   # Coding-agent host id, used only to pick which MCP-config FILE
   # okf-preflight.sh checks for OpenWiki's registration (.mcp.json /
   # ~/.claude.json for "claude", .junie/mcp/mcp.json / ~/.junie/mcp/mcp.json
-  # for "junie"). This is unrelated to the `--host` value inside that MCP
-  # server's own `args` (the string `openwiki mcp --host <id>` stamps into
-  # generated-page provenance) — this deployment runs under Junie
-  # (JetBrains), which has no `openwiki integrations install` support, so
-  # the MCP server was registered by hand in ~/.junie/mcp/mcp.json with
-  # args ["mcp", "--host", "claude"] (not "junie" — see README.md "Setup
-  # for Junie" for why). Set this field to "claude" instead of "junie" if
+  # for "junie"). This is a separate concern from the `--host` value inside
+  # that MCP server's own `args` (the string `openwiki mcp --host <id>`
+  # stamps into generated-page provenance) — this deployment runs under
+  # Junie (JetBrains), which has no `openwiki integrations install`
+  # support, so the MCP server was registered by hand in
+  # ~/.junie/mcp/mcp.json with args ["mcp", "--host", "junie"] (see
+  # README.md "Setup for Junie"). Set this field to "claude" instead if
   # you're running this extension under Claude Code, where
   # `openwiki integrations install claude` does the MCP registration for
   # you.

@@ -1,6 +1,23 @@
 # Changelog
 
-## 1.1.1 — fix the Junie MCP `--host` example
+## 1.1.2 — revert the `--host` example back to `junie`
+
+1.1.1 (below) changed the suggested Junie MCP `args` from `--host junie` to
+`--host claude`, reasoning that `junie` was an "unrecognized" value.
+That reasoning didn't hold up on a closer look at OpenWiki's source:
+`HostSessionManager` sets the producer-actor provenance metadata directly
+from whatever `--host` string is passed — no lookup table, no restriction
+to the `integrations install` registry (codex/claude/opencode/cursor), no
+different behavior for an "unknown" value. There is no functional or
+correctness reason to mislabel a Junie run as `claude`; `junie` is accepted
+just as freely and is the accurate one. Reverted README,
+`okf-config.template.yml`'s comment, and `okf-preflight.sh`'s fix-it message
+back to suggesting `--host junie`. `okf.host` in `okf-config.yml` was never
+affected by any of this — it only drives which MCP-config *file*
+`okf-preflight.sh` checks, a separate concern from the `--host` value
+inside that file.
+
+## 1.1.1 — fix the Junie MCP `--host` example (superseded by 1.1.2 above)
 
 The 1.1.0 README/config examples suggested registering OpenWiki's MCP server
 under Junie with `args: ["mcp", "--host", "junie"]`. That's not what's

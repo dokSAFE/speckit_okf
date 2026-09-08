@@ -5,7 +5,7 @@ schema_version: "1.0"
 extension:
   id: "okf"
   name: "OKF Knowledge Bundle Generator (OpenWiki engine)"
-  version: "1.1.1"
+  version: "1.1.2"
   description: >
     Generates and maintains an Open Knowledge Format (OKF v0.2) knowledge
     bundle from a source-code repository. This is a fork of alexcpn/speckit_okf

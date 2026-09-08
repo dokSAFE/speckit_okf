@@ -85,27 +85,24 @@ separate skill package; that packaging layer was not ported here.
      "mcpServers": {
        "openwiki": {
          "command": "openwiki",
-         "args": ["mcp", "--host", "claude"]
+         "args": ["mcp", "--host", "junie"]
        }
      }
    }
    ```
 
    Merge the `"openwiki"` entry into `mcpServers` if the file already has
-   other servers configured. Note the `--host` value here is **`claude`,
-   not `junie`** — deliberately. `--host` is just free-form provenance
-   metadata `openwiki mcp` stamps into generated-page frontmatter (any
-   lowercase id is accepted; it isn't restricted to the
-   `integrations install` registry), and OpenWiki has no real Junie
-   awareness to key off of, so this deployment uses the recognized `claude`
-   label there rather than an arbitrary `junie` one — it doesn't change
-   OpenWiki's behavior either way, it's cosmetic. This is orthogonal to
-   `okf.host` in `okf-config.yml` (below), which stays `"junie"` — that one
-   tells *this extension's* `okf-preflight.sh` which MCP-config file to
-   check (`.junie/mcp/mcp.json`), and is unrelated to what `--host` value
-   is inside it. There is no separately installed Junie skill file for
-   OpenWiki (unlike the Claude path); that's fine, this extension's command
-   files are self-contained and
+   other servers configured. `--host junie` is accepted freely — OpenWiki's
+   `HostSessionManager` sets the producer-actor metadata it stamps into
+   generated pages directly from whatever `--host` value you pass (no
+   lookup table, no restriction to the `integrations install` registry of
+   codex/claude/opencode/cursor), so `junie` is both valid and the accurate
+   label — nothing to lose by using it. This is orthogonal to `okf.host` in
+   `okf-config.yml` (below), which also stays `"junie"` but for an unrelated
+   reason: it tells *this extension's* `okf-preflight.sh` which MCP-config
+   file to check (`.junie/mcp/mcp.json`). There is no separately installed
+   Junie skill file for OpenWiki (unlike the Claude path); that's fine, this
+   extension's command files are self-contained and
    don't depend on it. See [Junie's MCP docs](https://junie.jetbrains.com/docs/junie-cli-mcp-configuration.html)
    for the general format.
 

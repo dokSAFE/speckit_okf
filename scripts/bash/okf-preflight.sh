@@ -91,12 +91,12 @@ case "$HOST" in
     # $HOST above (which only picks *this script's* file-detection branch,
     # i.e. "we're running under Junie, so check .junie/mcp/mcp.json"). It's
     # free-form provenance metadata `openwiki mcp` stamps into generated
-    # pages — OpenWiki has no real Junie awareness, so this deployment uses
-    # "claude" there deliberately (a recognized, meaningful value) rather
-    # than "junie" (which OpenWiki would accept but treat as just an
-    # arbitrary unrecognized label). Only the fix-it suggestion below needs
-    # this; detection itself just greps for `"openwiki"`.
-    OPENWIKI_HOST_ARG="claude"
+    # pages (openwiki's HostSessionManager sets producerActor = host
+    # directly, no lookup table, no restriction to its integrations-install
+    # registry) — so "junie" is both accepted and the accurate label here.
+    # Only the fix-it suggestion below needs this; detection itself just
+    # greps for `"openwiki"`.
+    OPENWIKI_HOST_ARG="junie"
     HAS_AUTO_INSTALLER=0
     PROJECT_MCP=".junie/mcp/mcp.json"
     USER_MCP="${HOME}/.junie/mcp/mcp.json"
