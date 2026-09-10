@@ -1,67 +1,50 @@
-# Configuration for the speckit-okf extension.
+# Configuration for the speckit-okf extension (OpenWiki engine).
 # Copy to .specify/extensions/okf/okf-config.yml (or leave defaults).
+#
+# Most of the knobs the original speckit_okf extension exposed here
+# (bundle layout, granularity, type taxonomy, exclude globs) no longer apply:
+# OpenWiki designs its own repository-specific documentation taxonomy per run
+# and owns its own ignore rules (.openwikiignore) and bundle layout. What's
+# left here is genuinely this extension's own behavior.
 
 okf:
-  # Where the knowledge bundle lives, relative to the repo root.
-  bundle_dir: "knowledge"
+  # Where OpenWiki writes the bundle. OpenWiki's "code" mode always writes to
+  # <repo-root>/openwiki/ — this is not currently configurable in OpenWiki
+  # itself, so leave this as "openwiki" unless a future OpenWiki version adds
+  # a --output-dir style option.
+  bundle_dir: "openwiki"
 
-  # Declared OKF version, written into the bundle-root index.md frontmatter.
-  okf_version: "0.1"
+  # Coding-agent host id, used only to pick which MCP-config FILE
+  # okf-preflight.sh checks for OpenWiki's registration (.mcp.json /
+  # ~/.claude.json for "claude", .junie/mcp/mcp.json / ~/.junie/mcp/mcp.json
+  # for "junie"). This is a separate concern from the `--host` value inside
+  # that MCP server's own `args` (the string `openwiki mcp --host <id>`
+  # stamps into generated-page provenance) — this deployment runs under
+  # Junie (JetBrains), which has no `openwiki integrations install`
+  # support, so the MCP server was registered by hand in
+  # ~/.junie/mcp/mcp.json with args ["mcp", "--host", "junie"] (see
+  # README.md "Setup for Junie"). Set this field to "claude" instead if
+  # you're running this extension under Claude Code, where
+  # `openwiki integrations install claude` does the MCP registration for
+  # you.
+  host: "junie"
 
-  # Base URL used to build `resource:` URIs for concepts bound to source
-  # files. {path} is replaced with the repo-relative file path.
-  # Leave empty to auto-detect from `git remote get-url origin`.
-  resource_base: ""   # e.g. "https://github.com/acme/shop/blob/main/{path}"
-
-  # Paths (glob) to exclude from the inventory scan and bundle validation.
-  # Honored directly by okf-inventory.sh and validate_okf.py (pass
-  # --config <this file> to either script) — not just prompt guidance.
-  exclude:
-    - "node_modules/**"
-    - ".git/**"
-    - "dist/**"
-    - "build/**"
-    - "vendor/**"
-    - "**/*.min.js"
-    - ".specify/**"
-    - "specs/**"
-
-  # Mapping hints from artifact kinds to OKF `type` values. The agent may
-  # introduce additional descriptive types; consumers must tolerate unknown
-  # types per OKF §4.1, so this list is guidance, not a closed taxonomy.
-  types:
-    service: "Service"
-    module: "Module"
-    api_endpoint: "API Endpoint"
-    cli_command: "CLI Command"
-    data_model: "Data Model"
-    database_table: "Database Table"
-    config: "Configuration"
-    pipeline: "Pipeline"
-    metric: "Metric"
-    playbook: "Playbook"
-    decision: "Design Decision"
-    reference: "Reference"
-
-  # Bundle layout: top-level subdirectories the generator organizes
-  # concepts into. Directories with no concepts are omitted.
-  layout:
-    - "architecture"   # system overview, design decisions
-    - "services"       # deployable units / apps
-    - "modules"        # significant packages / libraries within the code
-    - "apis"           # endpoints, schemas, contracts
-    - "data"           # tables, models, migrations
-    - "operations"     # playbooks, runbooks, pipelines, configs
-    - "references"     # mirrored external material
-
-  # Granularity control: don't create a concept for every file.
-  # "coarse"  = services + top-level modules + APIs + data models
-  # "medium"  = coarse + significant submodules and configs (default)
-  # "fine"    = medium + per-file concepts for complex files
-  granularity: "medium"
-
-  # /speckit.okf.clarify behavior.
+  # okf.clarify behavior (Junie: /speckit-okf-clarify; Claude: /speckit.okf.clarify).
+  # OpenWiki has no built-in "open questions" concept (it prefers to write
+  # only what it can verify from source and cite as a Claim). This
+  # extension's clarify command instead scans the bundle for uncertainty
+  # language, asks you about it, and folds confirmed answers into
+  # openwiki/INSTRUCTIONS.md — the one file OpenWiki reads but never
+  # overwrites — so the next update run incorporates them.
   clarify:
-    # Max questions to ask the user in a single clarify run (the rest are
-    # deferred to a later run) — keeps clarification from spamming the user.
     max_questions: 20
+    # Heuristic phrases okf.clarify greps page bodies for when looking for
+    # parked uncertainty worth asking you about.
+    uncertainty_markers:
+      - "unclear"
+      - "not clear from"
+      - "unable to verify"
+      - "unverified"
+      - "TODO"
+      - "not documented"
+      - "unknown whether"

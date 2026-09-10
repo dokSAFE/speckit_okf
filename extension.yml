@@ -4,26 +4,37 @@ schema_version: "1.0"
 
 extension:
   id: "okf"
-  name: "OKF Knowledge Bundle Generator"
-  version: "0.6.0"
+  name: "OKF Knowledge Bundle Generator (OpenWiki engine)"
+  version: "1.1.2"
   description: >
-    Generates and maintains an Open Knowledge Format (OKF v0.1) knowledge
-    bundle from a source-code repository. Adds commands to bootstrap a
-    bundle (mining git history for the "why"), incrementally update it,
-    clarify open questions with the user, validate conformance against
-    the OKF spec, and verify that the bundle's claims are actually
-    supported by the repository
-    (https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md).
-  author: "Alex Punnen <alexcpn@gmail.com>"
-  repository: "https://github.com/alexcpn/speckit_okf.git"
-  homepage: "https://github.com/alexcpn/speckit_okf"
+    Generates and maintains an Open Knowledge Format (OKF v0.2) knowledge
+    bundle from a source-code repository. This is a fork of alexcpn/speckit_okf
+    (which shipped OKF v0.1 and did all research/writing/validation itself via
+    hand-rolled bash inventory scripts and a single-shot agent prompt) that
+    replaces that generation engine with OpenWiki
+    (https://github.com/langchain-ai/openwiki), run in-session through its
+    coding-agent MCP integration (Claude Code out of the box; Junie/JetBrains
+    works too via a manually-registered MCP server, see okf-preflight.sh).
+    OpenWiki owns run state, the page queue, Claims (fact-to-source-evidence)
+    tracking, index synchronization, Mermaid validation, and OKF
+    frontmatter/provenance conformance; this extension's commands drive that
+    lifecycle and adapt okf.clarify and okf.validate to OpenWiki's model. No
+    separate LLM API key is required: OpenWiki's host integration uses the
+    calling agent's own model session.
+  author: "Didier (fork); original by Alex Punnen <alexcpn@gmail.com>"
+  repository: ""
+  homepage: "https://github.com/langchain-ai/openwiki"
   license: "MIT"
-  tags: [knowledge, okf, documentation, metadata, catalog]
+  tags: [knowledge, okf, documentation, metadata, catalog, openwiki]
   category: "documentation"
-  effect: "read-write"   # creates/modifies files under the knowledge bundle dir
+  effect: "read-write"   # creates/modifies files under the knowledge bundle dir (openwiki/)
 
 requires:
   speckit_version: ">=0.12.0"
+  tools:
+    - name: "openwiki"
+      required: true
+      version: ">=0.5.0"
 
 # scripts/bash/ and scripts/python/ are plain supporting files, not
 # manifest-declared assets — the extension installer copies this whole
@@ -40,8 +51,6 @@ provides:
       file: "commands/clarify.md"
     - name: "speckit.okf.validate"
       file: "commands/validate.md"
-    - name: "speckit.okf.verify"
-      file: "commands/verify.md"
   config:
     - name: "okf-config.yml"
       template: "okf-config.template.yml"

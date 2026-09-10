@@ -1,134 +1,182 @@
-# speckit-okf — OKF Knowledge Bundle Generator
+# speckit-okf (OpenWiki engine)
 
-[![CodeQL](https://github.com/alexcpn/speckit_okf/actions/workflows/codeql.yml/badge.svg)](https://github.com/alexcpn/speckit_okf/actions/workflows/codeql.yml)
-[![ShellCheck](https://github.com/alexcpn/speckit_okf/actions/workflows/shellcheck.yml/badge.svg)](https://github.com/alexcpn/speckit_okf/actions/workflows/shellcheck.yml)
-[![Skill](https://github.com/alexcpn/speckit_okf/actions/workflows/skill.yml/badge.svg)](https://github.com/alexcpn/speckit_okf/actions/workflows/skill.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+A [Spec Kit](https://github.com/github/spec-kit) extension that generates and
+maintains an [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md)
+(OKF) knowledge bundle for a repository. It's a fork of
+[alexcpn/speckit_okf](https://github.com/alexcpn/speckit_okf), which
+generated OKF v0.1 bundles with a hand-rolled bash inventory scan, git-history
+mining, and a single-shot agent prompt doing all the writing and validation
+itself.
 
-Turns your AI coding agent into an **OKF enrichment agent**: it analyzes a source-code repository and generates a conformant [Open Knowledge Format (OKF v0.1)](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md) knowledge bundle — a directory of cross-linked markdown concepts with YAML frontmatter describing your services, modules, APIs, data models, and operations.
+This fork replaces that generation engine with
+[**OpenWiki**](https://github.com/langchain-ai/openwiki), run in-session
+through its coding-agent MCP integration — **Claude Code** or **Junie**
+(JetBrains) are both supported by this extension; see Setup below. OpenWiki:
 
-Because OKF bundles are plain markdown in git, the generated bundle is readable by humans, diffable in PRs, and consumable by other agents without any bespoke tooling.
+- owns run state, a durable resumable page queue, and Claims (fact → cited
+  source-evidence) tracking instead of a single free-form pass;
+- deterministically enforces OKF v0.2 frontmatter/provenance conformance,
+  index synchronization, and Mermaid diagram validity as part of every run —
+  regardless of what the authoring agent wrote;
+- designs its own repository-specific documentation taxonomy per run instead
+  of a fixed layout;
+- needs **no separate LLM API key** when run this way: the host integration
+  uses the calling agent's own authenticated model session. (OpenWiki also
+  has a standalone CLI mode with its own provider/API-key setup — this
+  extension deliberately does not use that mode.)
 
-Ships in two forms, from one set of prompts and scripts:
+Commands are written host-agnostically using Spec Kit's
+`__SPECKIT_COMMAND_<NAME>__` placeholders, so the invocation syntax the agent
+tells you to type is always correct for whichever host installed them:
+`/speckit.okf.update` under Claude Code (Spec Kit's dotted convention) vs.
+`/speckit-okf-update` under Junie (Junie doesn't allow dots in slash-command
+names, so Spec Kit's Junie integration installs hyphenated names instead —
+this happens automatically, nothing to configure). This README uses the
+dotted form throughout for readability; mentally substitute hyphens if
+you're on Junie.
 
-| Form | For | Entry point |
-| ---- | --- | ----------- |
-| **Agent Skill** ([`plugins/okf/skills/okf-knowledge-bundle/`](plugins/okf/skills/okf-knowledge-bundle/SKILL.md)) | Claude Code, Claude.ai, the Claude Agent SDK, and any agent that reads the [Agent Skills](https://code.claude.com/docs/en/skills) `SKILL.md` format | Ask in plain language — "build an OKF knowledge bundle for this repo" |
-| **Spec Kit extension** (`commands/`, `extension.yml`) | [Spec Kit](https://github.com/github/spec-kit) users who want explicit slash commands | `/speckit.okf.generate` and friends |
+## Why fork instead of extend the original
 
-## Workflows
+The original extension's whole generation/validation logic is bash + a
+single agent prompt per run; there's no pluggable "engine" seam to swap in a
+different generator. This fork keeps the same four command names
+(`/speckit.okf.generate`, `/speckit.okf.update`, `/speckit.okf.clarify`,
+`/speckit.okf.validate`) as a drop-in replacement, but the command bodies and
+supporting scripts are rewritten to orchestrate OpenWiki's MCP tools instead
+of doing the research/inventory/history-mining themselves.
 
-Both forms drive the same four workflows.
+**Scope note:** this fork covers the Spec Kit extension surface only. The
+upstream repo also ships a `plugins/okf` Claude Code plugin/skill bundle with
+a sync script (`scripts/sync-skill.sh`) that mirrors the extension into a
+separate skill package; that packaging layer was not ported here.
 
-| Workflow (skill reference / Spec Kit command) | What it does |
-| ------- | ------------ |
-| `generate` — `/speckit.okf.generate` | Bootstrap a full bundle from the repo: inventory scan, git-history mining (churn + rationale), concept plan, concept documents, `index.md` files, `log.md`, validation. |
-| `update` — `/speckit.okf.update` | Incremental refresh: diffs git history since the last logged commit, surgically updates only stale concepts, deprecates orphans, creates concepts for new code, preserves human curation. |
-| `clarify` — `/speckit.okf.clarify` | Resolves the `open_questions` that generate/update parked (instead of guessing) by asking the user, then folds the answers back into concepts as cited, curation-protected knowledge. |
-| `validate` — `/speckit.okf.validate` | Runs the OKF §9 conformance checker and a quality spot-check; reports ERRORs/WARNINGs with fixes. Checks **structure**. |
-| `verify` — `/speckit.okf.verify` | Checks **claims**. Every cited commit must exist and belong to the concept citing it, every symbol in `# Interfaces` must exist in non-test code, every `source_files` path must be tracked by git, and no invariant may be asserted with no evidence. An agent auditing its own prose is the unreliable case; git is not. |
+## Setup
 
-## Install
+1. Install the OpenWiki CLI (Node.js ≥ 22), same for every host:
 
-### As an Agent Skill
+   ```sh
+   npm install -g openwiki
+   ```
 
-```bash
-# Claude Code — as a plugin (adds the skill, keeps it updatable)
-/plugin marketplace add alexcpn/speckit_okf
-/plugin install okf@speckit-okf
+2. Register OpenWiki as an MCP server for your coding agent — pick one:
 
-# Any agent that reads SKILL.md — copy the skill directory into place
-git clone https://github.com/alexcpn/speckit_okf.git
-cp -r speckit_okf/plugins/okf/skills/okf-knowledge-bundle ~/.claude/skills/    # personal
-cp -r speckit_okf/plugins/okf/skills/okf-knowledge-bundle .claude/skills/      # this project only
-```
+   ### Setup for Claude Code
 
-The skill is self-contained — `SKILL.md`, the four workflow references, and its
-own copies of the scripts — so it works anywhere the directory lands. For the
-Claude Agent SDK, point your skill source directory at the same folder.
+   OpenWiki has a built-in installer for this host:
 
-### As a Spec Kit extension
+   ```sh
+   openwiki integrations install claude
+   ```
 
-```bash
-# Option 1: install from a released archive (no catalog needed)
-specify extension add okf --from https://github.com/alexcpn/speckit_okf/archive/refs/tags/v0.5.0.zip
+   This registers the MCP server (in `.mcp.json` for `--project`, or
+   `~/.claude.json` for the default user-level install) **and** installs its
+   skill file. No API key needed.
 
-# Option 2: install from a local clone (dev mode)
-git clone https://github.com/alexcpn/speckit_okf.git
-specify extension add --dev speckit_okf/
+   ### Setup for Junie (JetBrains)
 
-# Option 3: once listed in the community catalog
-specify extension add okf
-```
+   Junie is not in OpenWiki's `integrations install` registry (that only
+   covers Codex, Claude Code, OpenCode, Cursor), so there's no one-line
+   installer — register the MCP server by hand instead, in
+   `~/.junie/mcp/mcp.json` (user-level) or `.junie/mcp/mcp.json`
+   (project-level, if you want it checked in for teammates):
 
-## Usage
+   ```json
+   {
+     "mcpServers": {
+       "openwiki": {
+         "command": "openwiki",
+         "args": ["mcp", "--host", "junie"]
+       }
+     }
+   }
+   ```
 
-With the **skill**, just ask — the agent loads it on its own when the request
-matches ("generate an OKF knowledge bundle for this repo", "refresh the
-knowledge bundle", "validate the OKF bundle").
+   Merge the `"openwiki"` entry into `mcpServers` if the file already has
+   other servers configured. `--host junie` is accepted freely — OpenWiki's
+   `HostSessionManager` sets the producer-actor metadata it stamps into
+   generated pages directly from whatever `--host` value you pass (no
+   lookup table, no restriction to the `integrations install` registry of
+   codex/claude/opencode/cursor), so `junie` is both valid and the accurate
+   label — nothing to lose by using it. This is orthogonal to `okf.host` in
+   `okf-config.yml` (below), which also stays `"junie"` but for an unrelated
+   reason: it tells *this extension's* `okf-preflight.sh` which MCP-config
+   file to check (`.junie/mcp/mcp.json`). There is no separately installed
+   Junie skill file for OpenWiki (unlike the Claude path); that's fine, this
+   extension's command files are self-contained and
+   don't depend on it. See [Junie's MCP docs](https://junie.jetbrains.com/docs/junie-cli-mcp-configuration.html)
+   for the general format.
 
-With the **Spec Kit extension**, run the commands explicitly:
+3. Restart your coding agent (Claude Code / the Junie CLI or plugin) so it
+   picks up the new MCP server.
 
-```bash
-# 1. Generate the initial knowledge bundle
-/speckit.okf.generate
+4. Install this extension into your Spec Kit project:
 
-# 2. Resolve anything the agent couldn't infer from code + git history
-/speckit.okf.clarify
+   ```sh
+   specify extension add --dev /path/to/speckit-okf
+   ```
 
-# 3. After making code changes, refresh incrementally
-/speckit.okf.update
+   (Use whatever install path/flag your Spec Kit version expects for a local
+   extension; see the [Spec Kit extension docs](https://github.com/github/spec-kit/blob/main/extensions/EXTENSION-DEVELOPMENT-GUIDE.md)
+   if `--dev` isn't right for your version.) Spec Kit's Junie integration
+   installs the commands to `.junie/commands/` with hyphenated names
+   (`speckit-okf-generate.md`, etc.) automatically — nothing extra to do for
+   that part.
 
-# 4. Validate conformance before committing
-/speckit.okf.validate
+5. Copy `okf-config.template.yml` to
+   `.specify/extensions/okf/okf-config.yml` and set `okf.host` to match
+   whichever agent you set up above (`"junie"` or `"claude"`) — the
+   preflight check in every command reads it to know which MCP-config file
+   to look for.
 
-# 5. Check that the bundle's claims survive the repository
-/speckit.okf.verify
-```
+Every command below runs `okf-preflight.sh` first and tells you exactly
+what's missing (with the fix command) if any of the above isn't done yet.
 
-Output lands in `knowledge/` (configurable) as a set of cross-linked markdown concept files ready to commit alongside your code.
+## Commands
+
+- **`/speckit.okf.generate`** — bootstraps the bundle under `openwiki/` by
+  driving OpenWiki's `init` lifecycle (`openwiki_begin` → plan → per-page
+  research/write loop → `openwiki_finish`). Refuses to blindly clobber an
+  existing bundle; suggests `/speckit.okf.update` instead unless you
+  explicitly ask for a rebuild.
+- **`/speckit.okf.update`** — refreshes the bundle for repository changes
+  since the last run and reconciles any Claims whose cited evidence went
+  stale, via OpenWiki's `update` lifecycle. No-ops cleanly if nothing
+  changed.
+- **`/speckit.okf.clarify`** — **redesigned** for OpenWiki's model (see
+  below): scans page bodies for uncertainty language, asks you concrete
+  questions about it, and records your answers in
+  `openwiki/INSTRUCTIONS.md` for the next `/speckit.okf.update` to pick up.
+- **`/speckit.okf.validate`** — a structural second opinion on the bundle
+  (frontmatter parses, links resolve, indexes present, no dupes). OpenWiki's
+  own finalizer is the authoritative validator and runs on every
+  generate/update regardless.
+
+### Why `/speckit.okf.clarify` had to change
+
+The original extension parked unresolved questions in an `open_questions`
+frontmatter field it invented and wrote by hand. OpenWiki has no such field —
+it only writes what it can back with cited source evidence (a Claim), and
+otherwise just doesn't assert the fact. There's nothing to "collect" from
+frontmatter. This fork's `/speckit.okf.clarify` instead treats
+`openwiki/INSTRUCTIONS.md` — the one file OpenWiki reads on every run but
+never overwrites — as the injection point for facts only a human can supply,
+and greps existing pages for uncertainty phrasing ("unclear", "TODO",
+"unable to verify", …) as the starting point for what to ask about. Configure
+the marker list in `okf-config.yml`.
 
 ## Configuration
 
-Copy `okf-config.template.yml` to `.okf-config.yml` in your repo root (the skill also reads `.specify/extensions/okf/okf-config.yml`, which is where the Spec Kit extension expects it) to control the bundle directory (default `knowledge/`), resource URI base, excludes, type mappings, layout, and granularity (`coarse` / `medium` / `fine`). Defaults work without any config.
+Copy `okf-config.template.yml` to `.specify/extensions/okf/okf-config.yml` to
+override defaults (bundle location is fixed by OpenWiki to `openwiki/`; the
+main things actually worth changing here are the Spec Kit agent `host` id and
+the `/speckit.okf.clarify` uncertainty-marker list). See the comments in that
+file — most of the original's config surface (bundle layout, granularity,
+type taxonomy, exclude globs) no longer applies, since OpenWiki owns those
+decisions itself now.
 
-## How it works
+## Credits
 
-1. `scripts/bash/okf-inventory.sh` deterministically scans the repo (entry points, dependency manifests, API definitions, migrations/models, CI/CD, docs, ADRs) into JSON — including **git-history signals** (`churn` = per-file commit counts for significance, `recent_commits`) — so the agent plans from facts, not guesses.
-2. `scripts/bash/okf-history.sh <path>` gives the agent bounded, per-concept git history — creation commit, recent subjects, and revert/hotfix/risk-flagged commits — so concepts capture the **"why"** (invariants, gotchas) with commit citations, not just the "what".
-3. The workflow prompt instructs the agent to draft a concept plan, then write OKF-conformant documents: required `type` frontmatter, recommended `title`/`description`/`resource`/`tags`/`timestamp`, producer extension fields `source_files` (maps each concept back to code — what makes incremental updates possible) and `open_questions` (parks uncertainty for `/speckit.okf.clarify` instead of guessing), relative cross-links that resolve on GitHub, `index.md` progressive-disclosure files, a `README.md` front door, and an ISO-dated `log.md`.
-4. `scripts/python/validate_okf.py` enforces OKF §9: parseable frontmatter everywhere, non-empty `type`, reserved-file structure — and warns on broken links, missing indexes, empty bodies, secret-looking strings, dangling `source_files`, duplicate concepts, and unresolved `open_questions`.
-
-## Generated bundle shape (example)
-
-```
-knowledge/
-├── index.md            # okf_version: "0.1" + directory of everything
-├── log.md              # dated history, records source commit SHA
-├── architecture/
-│   ├── index.md
-│   └── overview.md     # type: Reference — the "start here" concept
-├── services/…          # type: Service
-├── modules/…           # type: Module
-├── apis/…              # type: API Endpoint / API Resource
-├── data/…              # type: Data Model / Database Table
-└── operations/…        # type: Pipeline / Configuration / Playbook
-```
-
-## Notes
-
-- The updater never deletes concepts or human-written prose; removed code yields `status: deprecated`, not deletion.
-- The agent parks what it can't verify in `open_questions` rather than guessing; `/speckit.okf.clarify` turns those into human-confirmed, curation-protected facts (marked with `<!-- clarified -->` sentinels the updater won't overwrite). **This is the highest-value step, and the only one a machine cannot do for you.**
-- History mining marks commits that changed **only test files** as `[TEST-ONLY]` and lists the files each flagged commit touched. A goroutine leak fixed in `foo_test.go` is test hygiene, not a production invariant, and the workflow now says so.
-- `okf-cochange.py` mines **logical coupling**: directories that keep changing in the same commit are related even when neither imports the other, because the mechanism is a wire contract, a shared schema or a deployment ordering rule. That relationship exists in no import graph and no snapshot of the working tree.
-- The inventory enumerates with `git ls-files`, so `.gitignore` is honoured for free, and it reports untracked subtrees on disk so vendored or imported code is named and skipped rather than written up as if it were yours.
-- Secrets found in configs — or surfaced by git-history mining — are described by shape, never by value; the validator flags anything that slips through.
-- OKF's permissive consumption model (unknown types OK, broken links OK) is relied on deliberately — generation is safe to run early and often.
-- The scripts are checked on every push via CodeQL and ShellCheck; see [SECURITY.md](SECURITY.md) to report a vulnerability.
-- Measured on Kubernetes' `pkg/kubelet` (108,648 lines of Go): a 9-concept bundle is 21.9 KB, of which the service-level entry an agent needs for routing is 2.6 KB (~676 tokens). `okf-inventory` scans the full 500k-line Kubernetes tree in 2.1 seconds. On a monorepo, start at `granularity: coarse` and raise `OKF_INVENTORY_CAP` above its default of 150 — and note that raw churn skews toward generated files and build config, so invest in `exclude`.
-- The scripts and config template at the repo root are canonical; the skill carries copies so it stays portable. `scripts/sync-skill.sh` resyncs them and CI fails on drift (`scripts/sync-skill.sh --check`).
-- `scripts/python/validate_skill.py <skill_dir>` lints the `SKILL.md` frontmatter and its referenced paths; it also runs in CI.
-
-## License
-
-MIT
+- Original extension: [alexcpn/speckit_okf](https://github.com/alexcpn/speckit_okf)
+  by Alex Punnen.
+- Generation engine: [langchain-ai/openwiki](https://github.com/langchain-ai/openwiki).
+- OKF spec: [GoogleCloudPlatform/knowledge-catalog](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md).

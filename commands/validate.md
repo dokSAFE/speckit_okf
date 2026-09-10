@@ -1,58 +1,68 @@
 ---
-description: "Validate the OKF knowledge bundle against the OKF v0.1 conformance rules and report issues"
+description: "Check OKF structural conformance of the OpenWiki-generated bundle and report OpenWiki setup/run status"
+scripts:
+  sh: ../../scripts/bash/okf-preflight.sh
 ---
 
 # /speckit.okf.validate — Conformance check
 
-Run the OKF conformance checker against the bundle and interpret the
-results for the user.
+OpenWiki's own finalizer already enforces OKF v0.2 frontmatter conformance,
+index synchronization, and Mermaid validity **deterministically** as part of
+every `openwiki_finish` — it is the authoritative validator, and it runs
+whether or not you invoke this command. This command is a convenience
+second opinion: it re-checks the bundle structurally (useful after an
+interrupted run, a manual edit, or before committing), and reports whether
+OpenWiki/its Claude Code integration are even set up correctly.
 
-User input (optional path override):
+User input (optional: a subdirectory of the bundle to scope the check to):
 
 $ARGUMENTS
 
-## Steps
+## Phase 0 — Preflight
 
-1. Determine `bundle_dir` from `$ARGUMENTS`, else from
-   `.specify/extensions/okf/okf-config.yml`, else default `knowledge/`.
-2. Run:
+Run:
 
-   ```bash
-   python3 .specify/extensions/okf/scripts/python/validate_okf.py <bundle_dir> --config .specify/extensions/okf/okf-config.yml
-   ```
+```bash
+.specify/extensions/okf/scripts/bash/okf-preflight.sh --config .specify/extensions/okf/okf-config.yml
+```
 
-   `validate` answers *is this bundle well-formed?*. It says nothing about
-   whether it is **true**. Unless the user asked only for a conformance
-   check, run the claim verifier as well and report both:
+Report its output to the user regardless of pass/fail (unlike generate/update,
+don't hard-stop here — validation of an existing bundle is still useful even
+if, say, the MCP integration got unregistered since the bundle was last
+generated).
 
-   ```bash
-   python3 .specify/extensions/okf/scripts/python/verify_okf.py <bundle_dir>
-   ```
+## Phase 1 — Structural check
 
-3. Interpret the output using OKF §9 semantics:
-   - **ERRORs** make the bundle non-conformant (unparseable frontmatter,
-     missing/empty `type`, malformed `index.md`/`log.md`, or a `log.md`
-     date block missing its `Commit:` line — E4). Offer to fix them, and
-     fix on confirmation.
-   - **WARNINGs** are soft guidance a consumer must tolerate: broken
-     cross-links (W2), missing `title`/`description` (W1), missing
-     indexes (W3), empty concept bodies (W4), possible secrets (W5),
-     dangling `source_files` entries (W6), possible duplicate concepts
-     sharing a type+title (W7), and unresolved `open_questions` (W8).
-     Report them grouped by kind; broken links may legitimately represent
-     not-yet-written knowledge. For W8, point the user at
-     `/speckit.okf.clarify` to resolve the questions. Do not re-derive
-     W4/W5/W6/W7/W8 yourself — the validator already found them; just
-     relay and prioritize.
-4. Additionally spot-check quality the validator can't mechanically
-   judge:
-   - Indexes whose entries lack descriptions.
-   - Stale `timestamp`s: for each concept (or, if the last
-     `/speckit.okf.update` diff range is known, just the concepts it
-     touched — otherwise spot-check up to 10), compare its `timestamp`
-     against `git log -1 --format=%cI -- <path>` for each file in its
-     `source_files`. Flag it if `timestamp` predates any of them — that
-     means the doc claims to reflect an older version of the code than
-     what's currently on disk.
-5. Summarize with a conformant / non-conformant verdict and a short
-   prioritized fix list.
+If `openwiki/` (or the bundle dir from
+`.specify/extensions/okf/okf-config.yml`) doesn't exist, tell the user to run
+__SPECKIT_COMMAND_OKF_GENERATE__ first and stop.
+
+Run:
+
+```bash
+python3 .specify/extensions/okf/scripts/python/validate_okf_bundle.py openwiki ${ARGUMENTS:+--scope "$ARGUMENTS"}
+```
+
+This checks, per file: parseable YAML frontmatter with a non-empty `type`;
+recommended `title`/`description` present; no obviously secret-looking
+strings; internal links resolve; every directory with concept files has an
+`index.md`; no two concepts share the same `type`+`title`; and, when present,
+that `generated`/`verified`/`sources`/`status`/`stale_after` have roughly the
+right shape (this is advisory only — OpenWiki's own frontmatter validator in
+`src/okf/frontmatter.ts` is authoritative, this script does not replicate its
+exact YAML-schema rules).
+
+**What this script deliberately does not do:** determine whether a Claim's
+cited evidence is stale (that requires OpenWiki's internal evidence-hash
+comparison, which is not something to reimplement here) — trust
+`openwiki_inspect_page_claims` / a fresh __SPECKIT_COMMAND_OKF_UPDATE__ run for that.
+
+## Phase 2 — Report
+
+Summarize: page count, error count (frontmatter unparseable / missing `type`
+/ malformed reserved files), warning count and the categories they fall into,
+and overall CONFORMANT / NON-CONFORMANT result. If there are errors, list
+them and suggest fixes (usually: re-run __SPECKIT_COMMAND_OKF_UPDATE__ and let
+OpenWiki repair the page, since `migrateWikiToOkf` normalizes non-conformant
+frontmatter automatically on its next run). If everything is clean, say so
+plainly.
